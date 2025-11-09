@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import * as CANNON from "cannon";
+import { camera, scene, useMovePlayerTo, selectMode, productView, selectedProduct, lastClickedObject, mouse, raycaster, _playerBody } from "@/composables/useThree";
+import { shelves } from "@/composables/createShelves"; // KORREKTUR: 'shelves' aus der richtigen Datei importieren.
 
 const productsGrid = [
   { x: -1, z: -1 },
@@ -13,86 +16,102 @@ const productsGrid = [
 ];
 
 const scaleAmount = 0.6;
-export let productView = ref(false);
-export let selectedProduct = ref();
 export let hoveredProduct = ref();
 let isDragging = false;
 let clickedObject;
-export const hoveredMouseX = ref();
-export const hoveredMouseY = ref();
-const mouse = new THREE.Vector2();
-export const raycaster = new THREE.Raycaster();
 let previousMousePosition = { x: 0, y: 0 };
 
 export function clickEvent(event) {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
+  // KORREKTUR: Der Klick kommt jetzt immer aus der Mitte des Bildschirms,
+  // sowohl im FPV- als auch im selectMode.
+  mouse.x = 0;
+  mouse.y = 0;
   raycaster.setFromCamera(mouse, camera);
   let intersects;
-  if (productView.value) {
+  if (productView.value && selectedProduct.value) {
     intersects = raycaster.intersectObjects([selectedProduct]);
   } else {
     intersects = raycaster.intersectObjects(shelves);
   }
 
-  if (intersects.length > 0) {
-    if (productView.value === false) {
-      clickedObject = intersects[0].object;
-    }
-    let topGroup = clickedObject;
-    while (topGroup.parent && topGroup.parent !== scene) {
-      topGroup = topGroup.parent;
+  // --- KORRIGIERTE LOGIK ---
+  
+  // Wenn wir nichts getroffen haben, beenden wir die Funktion.
+  if (intersects.length === 0) {
+    return;
+  }
+  
+  // Fall 1: Wir sind NICHT im selectMode. Der Klick soll uns zum Regal teleportieren.
+  // KORREKTUR: Die Prüfung auf isLocked() wird entfernt. Ein Klick auf ein Regal soll immer den Teleport auslösen,
+  // solange wir nicht bereits im selectMode sind.
+  if (!selectMode.value) {
+    let clickedShelf = intersects[0].object;
+    
+    // NEU: Console.log, um den Klick zu bestätigen.
+    console.log("Regal geklickt!", clickedShelf);
+
+    while (clickedShelf.parent && clickedShelf.parent !== scene) {
+      clickedShelf = clickedShelf.parent;
     }
 
-    if (!selectMode.value) {
-      selectMode.value = true;
-      productHover();
-      savedPos.x = camera.position.x;
-      savedPos.y = camera.position.y;
-      savedPos.z = camera.position.z;
-      camera.position.z = topGroup.position.z;
-      camera.position.y = 1.1;
-      if (topGroup.position.x > 0) {
-        camera.position.x = -1.2;
-      } else {
-        camera.position.x = 1.2;
-      }
+    // KORREKTUR: Die Positionsberechnung war falsch. Wir müssen die X-Position anpassen, nicht die Z-Position.
+    const playerPosition = new CANNON.Vec3();
+    const distanceFromShelf = 2.0; // Abstand zum Regal
 
-      camera.lookAt(
-        topGroup.position.x,
-        topGroup.position.y,
-        topGroup.position.z
-      );
+    playerPosition.z = clickedShelf.position.z; // Die Z-Position des Spielers sollte mit der des Regals übereinstimmen.
+    // KORREKTUR: Behalte die aktuelle Y-Position des Spielers bei, um Sprünge zu vermeiden.
+    if (_playerBody) {
+      playerPosition.y = _playerBody.position.y;
+    }
+    if (clickedShelf.position.x > 0) {
+      // Rechtes Regal (schaut zur negativen X-Achse), also muss der Spieler eine kleinere X-Position haben.
+      playerPosition.x = clickedShelf.position.x - distanceFromShelf;
     } else {
-      if (productView.value === false) {
-        while (
-          clickedObject.parent &&
-          clickedObject.parent !== scene &&
-          clickedObject.userData.finalLayer != true
-        ) {
-          clickedObject = clickedObject.parent;
-        }
-        if (clickedObject.userData.productName) {
-          productView.value = true;
-          selectedProduct = clickedObject.clone();
-          if (selectedProduct.isMesh) {
-            selectedProduct.geometry = clickedObject.geometry.clone();
-            selectedProduct.geometry.center();
-          }
-
-          selectedProduct.scale.copy(clickedObject.scale);
-          clickedObject.visible = false;
-
-          activateProductView(selectedProduct);
-          addRotationControls();
-        }
-      } else if (productView.value) {
-        if (clickedObject == selectedProduct) {
-          console.log("fitting");
-        }
-      }
+      // Linkes Regal (schaut zur positiven X-Achse), also muss der Spieler eine größere X-Position haben.
+      playerPosition.x = clickedShelf.position.x + distanceFromShelf;
     }
+
+    useMovePlayerTo(playerPosition, new THREE.Vector3(clickedShelf.position.x, 0.9, clickedShelf.position.z));
+    selectMode.value = true;
+  } 
+  // Fall 2: Wir sind im selectMode, aber noch nicht in der Produktansicht. Der Klick wählt ein Produkt aus.
+  else if (selectMode.value && !productView.value) {
+    clickedObject = intersects[0].object;
+    lastClickedObject.value = clickedObject; // NEU: Das Originalobjekt speichern
+    while ( // @ts-ignore
+      clickedObject.parent &&
+      clickedObject.parent !== scene &&
+      !clickedObject.userData.finalLayer
+    ) {
+      clickedObject = clickedObject.parent;
+    }
+    handleProductSelection(clickedObject);
+  } 
+  // Fall 3: Wir sind in der Produktansicht.
+  else if (productView.value) {
+    if (intersects.length > 0 && intersects[0].object === selectedProduct.value) {
+      console.log("fitting");
+    }
+  }
+}
+
+// NEU: Funktion zur Behandlung der Produktauswahl
+function handleProductSelection(clickedObject: THREE.Object3D) {
+  if (clickedObject.userData.productName) {
+    productView.value = true;
+    // KORREKTUR: Das Originalobjekt klonen und für die Detailansicht vorbereiten. // @ts-ignore
+    selectedProduct.value = clickedObject.clone();
+    if (selectedProduct.value.isMesh) { // @ts-ignore
+      selectedProduct.value.geometry = clickedObject.geometry.clone(); // @ts-ignore
+      selectedProduct.value.geometry.center();
+    }
+ // @ts-ignore
+    selectedProduct.value.scale.copy(clickedObject.scale);
+    clickedObject.visible = false; // Originalobjekt ausblenden
+
+    // Produkt in der Detailansicht positionieren und Rotationssteuerung aktivieren
+    activateProductView(selectedProduct);
+    addRotationControls();
   }
 }
 
@@ -102,9 +121,9 @@ export function productHover() {
 
 export function selectedProductToCart() {
   removeRotationControls();
-  if (selectedProduct) {
-    deleteObjekt(clickedObject);
-    useAddProductToCart(selectedProduct, scaleAmount);
+  if (selectedProduct.value) {
+    deleteObjekt(lastClickedObject.value); // KORREKTUR: Verwende das gespeicherte Originalobjekt
+    useAddProductToCart(selectedProduct.value, scaleAmount);
     setTimeout(() => {
       productView.value = false;
     }, 200);
@@ -114,9 +133,9 @@ export function selectedProductToCart() {
 export function selectedProductToShelf() {
   removeRotationControls();
   spotLight.intensity = 0;
-  if (selectedProduct) {
-    clickedObject.visible = true;
-    deleteObjekt(selectedProduct);
+  if (selectedProduct.value && lastClickedObject.value) { // KORREKTUR: Prüfe beide Objekte
+    lastClickedObject.value.visible = true; // KORREKTUR: Mache das Originalobjekt wieder sichtbar
+    deleteObjekt(selectedProduct.value);
     setTimeout(() => {
       productView.value = false;
     }, 200);
@@ -164,10 +183,10 @@ function onMouseDown(event: MouseEvent) {
   raycaster.setFromCamera(mouse, camera);
   let intersects;
   if (productView.value) {
-    if (selectedProduct.isMesh) {
-      intersects = raycaster.intersectObjects([selectedProduct]);
+    if (selectedProduct.value.isMesh) { // @ts-ignore
+      intersects = raycaster.intersectObjects([selectedProduct.value]);
     } else {
-      intersects = raycaster.intersectObjects(selectedProduct.children);
+      intersects = raycaster.intersectObjects(selectedProduct.value.children); // @ts-ignore
     }
   } else {
     intersects = raycaster.intersectObjects(shelves);
@@ -176,7 +195,7 @@ function onMouseDown(event: MouseEvent) {
     mouseDownObj = intersects[0].object;
   }
   if (
-    (mouseDownObj == selectedProduct || intersects.length > 0) &&
+    (mouseDownObj == selectedProduct.value || intersects.length > 0) &&
     productView.value
   ) {
     isDragging = true;
@@ -189,12 +208,12 @@ function onMouseUp() {
 }
 
 function onMouseMove(event: MouseEvent) {
-  if (!isDragging || !selectedProduct) return;
+  if (!isDragging || !selectedProduct.value) return;
 
   const deltaX = event.clientX - previousMousePosition.x;
 
   // Rotation um den eigenen Mittelpunkt (nur Y-Achse)
-  selectedProduct.rotation.y += deltaX * 0.01;
+  selectedProduct.value.rotation.y += deltaX * 0.01; // @ts-ignore
 
   previousMousePosition = { x: event.clientX, y: event.clientY };
 }
