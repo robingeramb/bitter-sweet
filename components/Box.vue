@@ -441,18 +441,12 @@ function renderLoop(): void {
     threeObj.quaternion.copy(cannonObj.quaternion);
   }
 
-  // DEBUG: Aktualisiere die Position der sichtbaren Debug-Meshes
-  for (const [body, mesh] of debugMeshes.entries()) {
-    mesh.position.copy(body.position as unknown as THREE.Vector3);
-    mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion);
-  }
-
   if (taskDone.value == true) {
     _composer.render();
   } else {
     _renderer.render(scene, camera);
   }
-  stats.end();
+
   _renderLoopId = requestAnimationFrame(renderLoop);
 }
 
