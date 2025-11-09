@@ -192,6 +192,7 @@ import { ref } from "vue";
 const emit = defineEmits(["startSetup"]);
 const time = ref(300); // 5 minutes in seconds
 const started = ref(false);
+const testMode = true;
 
 const gameOver = ref(false);
 let interval = null;
@@ -199,25 +200,20 @@ let interval = null;
 const startGame = () => {
   emit("startSetup");
   started.value = true;
-  if (
-    loadingProgress.value >= 100 &&
-    loadedItems.value > 128 &&
-    clockStart.value == false
-  ) {
-    setTimeout(() => {
-      startCountdown();
-    }, 200);
-  }
 };
 
 watch(
   () => loadingProgress.value,
   (newValue) => {
     if (
-      newValue >= 100 &&
-      started.value &&
-      loadedItems.value > 128 &&
-      clockStart.value == false
+      (newValue >= 100 &&
+        started.value &&
+        loadedItems.value > 128 &&
+        clockStart.value == false) ||
+      (newValue >= 100 &&
+        started.value &&
+        testMode == true &&
+        clockStart.value == false)
     ) {
       setTimeout(() => {
         startCountdown();

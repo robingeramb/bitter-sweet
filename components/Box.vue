@@ -3,6 +3,7 @@
 import { useThree, camera, scene } from "@/composables/useThree";
 import { useMoveCamera } from "@/composables/moveCamera";
 import { BoxGeometry, Mesh, WebGLRenderer } from "three";
+import Stats from "stats.js";
 
 /* --- Props --- */
 interface Props {
@@ -43,6 +44,10 @@ watch(
     moveCameraXY(newX, newY), checkIntersects();
   }
 );
+
+/* --- Stats.js --- */
+let stats;
+let statsContainer = ref();
 
 function checkIntersects() {
   mouse.x = (props.mousePos.x / window.innerWidth) * 2 - 1;
@@ -252,6 +257,7 @@ async function setupCashRegister(): Promise<void> {
 }
 
 function renderLoop(): void {
+  stats.begin();
   if (shoppingCart && !selectMode.value) {
     shoppingCart.position.set(0, 0.1, camera.position.z - 1);
     productSelection.position.set(0, 0.42, camera.position.z - 0.95);
@@ -277,7 +283,7 @@ function renderLoop(): void {
   } else {
     _renderer.render(scene, camera);
   }
-
+  stats.end();
   _renderLoopId = requestAnimationFrame(renderLoop);
 }
 
@@ -292,6 +298,12 @@ function leaveSelectMode(): void {
 /* --- Lifecycle Hooks --- */
 onMounted(() => {
   if (canvas.value) {
+    stats = new Stats();
+    stats.showPanel(0); // 0: FPS
+    stats.dom.style.position = "absolute";
+    stats.dom.style.top = "0px";
+    stats.dom.style.left = "0px";
+    document.body.appendChild(stats.dom);
     canvas.value.width = window.innerWidth;
     canvas.value.height = window.innerHeight;
     window.addEventListener("click", (event) => {
@@ -312,6 +324,7 @@ defineExpose({ leaveSelectMode, setupScene });
 
 <template>
   <div class="cursor-none fixed top-0 left-0">
+    <div ref="statsContainer" class="stats"></div>
     <canvas class="cursor-none" id="mountId" width="700" height="500" />
     <ProductSelectMenu class="cursor-none" v-if="selectMode" />
     <Cursor

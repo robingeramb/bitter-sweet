@@ -30,7 +30,7 @@ export async function createShelves(
   );
   let currPos = 0;
   let posCounter = -2;
-  for (let index = 0; index < myStore.shelves.length; index++) {
+  for (let index = 0; index < myStore.testShelves.length; index++) {
     if (currPos == pos.x2) {
       currPos = pos.x1;
     } else {
@@ -42,7 +42,7 @@ export async function createShelves(
       shelfWidth,
       shelfLength,
       shelfMaterial,
-      myStore.shelves[index]
+      myStore.testShelves[index]
     );
     // Position des Regals berechnen
     shelf.position.x = currPos; // Regale entlang der X-Achse platzieren

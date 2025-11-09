@@ -38,6 +38,9 @@ importers:
       spectorjs:
         specifier: ^0.9.30
         version: 0.9.30
+      stats.js:
+        specifier: ^0.17.0
+        version: 0.17.0
       three:
         specifier: ^0.172.0
         version: 0.172.0
@@ -4026,6 +4029,9 @@ packages:
 
   standard-as-callback@2.1.0:
     resolution: {integrity: sha512-qoRRSyROncaz1z0mvYqIE4lCd9p2R90i6GxW3uZv5ucSu8tU7B5HXUP1gG8pVZsYNVaXjk8ClXHPttLyxAL48A==}
+
+  stats.js@0.17.0:
+    resolution: {integrity: sha512-hNKz8phvYLPEcRkeG1rsGmV5ChMjKDAWU7/OJJdDErPBNChQXxCo3WZurGpnWc6gZhAzEPFad1aVgyOANH1sMw==}
 
   statuses@1.5.0:
     resolution: {integrity: sha512-OpZ3zP+jT1PI7I8nemJX4AKmAX070ZkYPVWV/AaKTJl+tXCTGyVdC1a4SL8RUQYEwk/f34ZX8UTykN68FwrqAA==}
@@ -9928,6 +9934,8 @@ snapshots:
       '@shaderfrog/glsl-parser': 2.1.5
 
   standard-as-callback@2.1.0: {}
+
+  stats.js@0.17.0: {}
 
   statuses@1.5.0: {}
 

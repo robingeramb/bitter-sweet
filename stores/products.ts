@@ -608,6 +608,84 @@ export const useProductsStore = defineStore({
         ],
       },
     ],
+    testShelves: [
+      {
+        name: "Noodles",
+        boards: [
+          {
+            repeat: 2,
+            products: [
+              "fusilliNoodle",
+              "fusilliNoodle",
+              "fusilliNoodle",
+              "fusilliNoodle",
+              "fusilliNoodle",
+              "fusilliNoodle",
+              "fusilliNoodle",
+            ],
+          },
+        ],
+      },
+      {
+        name: "Drinks",
+        boards: [
+          {
+            repeat: 2,
+            products: [
+              "applejuice",
+              "applejuice",
+              "applejuice",
+              "applejuice",
+              "applejuice",
+              "applejuice",
+              "applejuice",
+              "applejuice",
+              "applejuice",
+              "applejuice",
+            ],
+          },
+        ],
+      },
+      {
+        name: "Sauces",
+        boards: [
+          {
+            repeat: 1,
+            products: [
+              "tomatosauce",
+              "tomatosauce",
+              "tomatosauce",
+              "tomatosauce",
+              "tomatosauce",
+              "tomatosauce",
+              "tomatosauce",
+              "tomatosauce",
+            ],
+          },
+        ],
+      },
+
+      {
+        name: "Snack",
+        boards: [
+          {
+            repeat: 2,
+            products: [
+              "pringlesChips",
+              "pringlesChips",
+              "pringlesChips",
+              "pringlesChips",
+              "pringlesChips",
+              "pringlesChips",
+              "pringlesChips",
+              "pringlesChips",
+              "pringlesChips",
+              "pringlesChips",
+            ],
+          },
+        ],
+      },
+    ],
   }),
   getters: {
     getItemsByCategory: (state) => (category: string) => {

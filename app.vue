@@ -1,4 +1,7 @@
 <template>
+  <ClientOnly>
+    <WebcamScene />
+  </ClientOnly>
   <EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />
   <Countdown
     v-if="!endScreen"
