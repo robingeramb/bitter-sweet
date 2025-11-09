@@ -147,17 +147,51 @@ export const useFirstPersonControls = (
     // Die Bewegung (velocity) wird weiterhin durch `isLocked` und `selectMode` gesteuert.
     if (!productView.value) {
       euler.setFromQuaternion(camera.quaternion);
-      euler.y -= rotationVelocity.x;
-      euler.x -= rotationVelocity.y;
-
+      
+      // KORREKTUR: Wende die Mausbewegung grundsätzlich an.
+      // Die Dämpfung im selectMode wird den Wert von rotationVelocity modifizieren, bevor er hier verwendet wird.
+      let finalRotationVelocity = rotationVelocity.clone();
+      
       if (selectMode.value) {
-        // Im selectMode: Rotation relativ zur initialen Ausrichtung begrenzen
-        const deltaX = THREE.MathUtils.clamp(euler.x - initialSelectModeEuler.x, -maxRotation.x, maxRotation.x);
-        const deltaY = THREE.MathUtils.clamp(euler.y - initialSelectModeEuler.y, -maxRotation.y, maxRotation.y);
-        euler.x = initialSelectModeEuler.x + deltaX;
-        euler.y = initialSelectModeEuler.y + deltaY;
+        // KORREKTUR: Verhindere das "Aufstauen" der Bewegung am Rand.
+        // Wenn die Kamera am Rand ist und die Maus sich weiter in diese Richtung bewegt,
+        // wird die Geschwindigkeit für diese Richtung auf Null gesetzt.
+        const boundaryMargin = 0.001; // Ein kleiner Puffer, um Fließkomma-Ungenauigkeiten zu vermeiden.
+        if ((euler.y >= initialSelectModeEuler.y + maxRotation.y - boundaryMargin && finalRotationVelocity.x < 0) ||
+            (euler.y <= initialSelectModeEuler.y - maxRotation.y + boundaryMargin && finalRotationVelocity.x > 0)) {
+          finalRotationVelocity.x = 0;
+        }
+        if ((euler.x >= initialSelectModeEuler.x + maxRotation.x - boundaryMargin && finalRotationVelocity.y < 0) ||
+            (euler.x <= initialSelectModeEuler.x - maxRotation.x + boundaryMargin && finalRotationVelocity.y > 0)) {
+          finalRotationVelocity.y = 0;
+        }
+
+        // Wende die exponentielle Dämpfung an, die jetzt korrekt funktioniert.
+        const dampingPower = 2.0;
+        const progressY = Math.abs(euler.y - initialSelectModeEuler.y) / maxRotation.y;
+        const progressX = Math.abs(euler.x - initialSelectModeEuler.x) / maxRotation.x;
+        finalRotationVelocity.x *= Math.pow(1.0 - Math.min(progressY, 1.0), dampingPower);
+        finalRotationVelocity.y *= Math.pow(1.0 - Math.min(progressX, 1.0), dampingPower);
+      }
+
+      // 4. Wende die (potenziell gedämpfte) Mausbewegung an.
+      euler.y -= finalRotationVelocity.x;
+      euler.x -= finalRotationVelocity.y;
+
+      // 5. Begrenze die Rotation je nach Modus (als finales Sicherheitsnetz).
+      if (selectMode.value) {
+        const clampedX = THREE.MathUtils.clamp(euler.x, initialSelectModeEuler.x - maxRotation.x, initialSelectModeEuler.x + maxRotation.x);
+        if (clampedX !== euler.x) {
+          rotationVelocity.y = 0; // Stoppe vertikale Geschwindigkeitsakkumulation
+        }
+        euler.x = clampedX;
+
+        const clampedY = THREE.MathUtils.clamp(euler.y, initialSelectModeEuler.y - maxRotation.y, initialSelectModeEuler.y + maxRotation.y);
+        if (clampedY !== euler.y) {
+          rotationVelocity.x = 0; // Stoppe horizontale Geschwindigkeitsakkumulation
+        }
+        euler.y = clampedY;
       } else {
-        // Im normalen Modus: Vertikale Rotation normal begrenzen
         euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
       }
 
