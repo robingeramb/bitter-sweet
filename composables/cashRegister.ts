@@ -1,5 +1,6 @@
 import * as THREE from "three";
 
+import { camera, taskDone, endScreen } from "@/composables/useThree";
 let clickedObject;
 const mouse = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
