@@ -1,90 +1,69 @@
 import CANNON from "cannon";
-import { BoxGeometry, Quaternion, Mesh, MeshStandardMaterial } from "three";
-export const generateShoppingCartBorderBox = () => {
+import { shoppingCartMaterial, COLLISION_GROUPS } from "./useThree"; // KORREKTUR: Korrektes Material importieren
+
+export const generateShoppingCartBody = (): CANNON.Body => {
   const x = 0.37;
   const y = 0.3;
   const z = 0.84;
-  const h = 0.1;
+  const h = 0.02; // Dicke der Wände/des Bodens
 
-  // Visualisiere das Box-Objekt mit Three.js
-  const geometry = new BoxGeometry(x, h, z); // Maßstab in Three.js
-  const material = new MeshStandardMaterial({
-    color: 0xff0000,
-    opacity: 0.9,
-    transparent: true,
+  const shoppingCartBody = new CANNON.Body({
+    mass: 20, // Eine realistische Masse für einen Einkaufswagen
+    type: CANNON.Body.KINEMATIC, // KORREKTUR: Der Wagen wird jetzt kinematisch gesteuert (direkte Positionierung).
+    linearDamping: 0.0, // Dämpfung ist für kinematische Körper irrelevant.
+    angularDamping: 0.0, // KORREKTUR: Dämpfung reduziert, um eine sanfte Drehung zu ermöglichen.
+    material: shoppingCartMaterial, // Das korrekte Material für den Einkaufswagen zuweisen
+    collisionFilterGroup: COLLISION_GROUPS.SHOPPING_CART,
+    collisionFilterMask:
+      COLLISION_GROUPS.PRODUCT | // Soll mit Produkten kollidieren
+      COLLISION_GROUPS.GROUND, // Soll mit dem Boden kollidieren
   });
-  const mesh = new Mesh(geometry, material);
-  mesh.position.set(0, -h / 2 + 0.01, 0);
 
-  const boxShape = new CANNON.Box(new CANNON.Vec3(x, h / 2, z)); // Rechteckige Box (2x1x0.5)
-  const boxBody = new CANNON.Body({
-    mass: 0, // Die Masse des Körpers
-    position: new CANNON.Vec3(0, -h / 2 + 0.01, 0), // Anfangsposition (x, y, z)
-  });
-  boxBody.addShape(boxShape);
+  // KORREKTUR: Der Ursprung des Physik-Körpers (sein .position-Vektor) ist jetzt der unterste Punkt des Wagens.
+  // Alle Shapes werden relativ zu diesem Punkt nach oben verschoben, um die Stabilität zu gewährleisten.
+  const basketBottomY = 0.4; // Die Y-Position, an der der Boden des Korbes beginnt.
+  
+  // KORREKTUR: Anstelle von vier instabilen Kugeln als "Räder" wird eine einzige, stabile Box als Basis verwendet.
+  // Diese große, flache Box liegt stabil auf dem Boden und verhindert das "Hüpfen" vollständig.
+  // Sie ist das physikalische Äquivalent zum Fahrgestell.
+  const baseHeight = 0.1;
+  const baseShape = new CANNON.Box(new CANNON.Vec3(x / 2, baseHeight / 2, z / 2));
+  shoppingCartBody.addShape(baseShape, new CANNON.Vec3(0, baseHeight / 2, 0)); // Positioniert die Basis direkt am Ursprung des Körpers.
 
-  const wallRight = new BoxGeometry(h, y, z); // Maßstab in Three.js
-  const wallRightMesh = new Mesh(wallRight, material);
-  wallRightMesh.position.set(-x / 2 - h / 2, y / 2, 0);
-  const wallRightCA = new CANNON.Box(new CANNON.Vec3(h / 2, y / 2, z / 2)); // Rechteckige Box (2x1x0.5)
-  const wallRightBodyCA = new CANNON.Body({
-    mass: 0, // Die Masse des Körpers
-    position: new CANNON.Vec3(-x / 2 - h / 2, y / 2, 0), // Anfangsposition (x, y, z)
-  });
-  wallRightBodyCA.addShape(wallRightCA);
+  // 1. Boden des Korbes (jetzt korrekt angehoben)
+  const floorShape = new CANNON.Box(new CANNON.Vec3(x / 2, h / 2, z / 2));
+  shoppingCartBody.addShape(floorShape, new CANNON.Vec3(0, basketBottomY, 0)); // Positioniert den Korb-Boden auf der korrekten Höhe.
 
-  const wallLeftMesh = new Mesh(wallRight, material);
-  wallLeftMesh.position.set(x / 2 + h / 2, y / 2, 0);
+  // 2. Seitenwände (links und rechts, jetzt korrekt angehoben)
+  const sideWallShape = new CANNON.Box(
+    new CANNON.Vec3(h / 2, y / 2, z / 2)
+  );
+  shoppingCartBody.addShape(
+    sideWallShape,
+    new CANNON.Vec3(x / 2, basketBottomY + y / 2, 0) // Rechte Wand
+  ); // Rechte Wand
+  shoppingCartBody.addShape(
+    sideWallShape,
+    new CANNON.Vec3(-x / 2, basketBottomY + y / 2, 0) // Linke Wand
+  ); // Linke Wand
 
-  const wallLeftCA = new CANNON.Box(new CANNON.Vec3(h / 2, y / 2, z / 2)); // Rechteckige Box (2x1x0.5)
-  const wallLeftBodyCA = new CANNON.Body({
-    mass: 0, // Die Masse des Körpers
-    position: new CANNON.Vec3(x / 2 + h / 2, y / 2, 0), // Anfangsposition (x, y, z)
-  });
-  wallLeftBodyCA.addShape(wallLeftCA);
+  // 3. Rückwand (beim Griff, jetzt korrekt angehoben)
+  const backWallShape = new CANNON.Box(new CANNON.Vec3(x / 2, y / 2, h / 2));
+  shoppingCartBody.addShape(backWallShape, new CANNON.Vec3(0, basketBottomY + y / 2, z / 2)); // Rückwand
 
-  const wallBack = new BoxGeometry(x, y, h); // Maßstab in Three.js
-  const wallBackMesh = new Mesh(wallBack, material);
-  wallBackMesh.position.set(0, y / 2, -z / 2 - h / 2);
-
-  const wallBackCA = new CANNON.Box(new CANNON.Vec3(x / 2, y / 2, h / 2)); // Rechteckige Box (2x1x0.5)
-  const wallBackBodyCA = new CANNON.Body({
-    mass: 0, // Die Masse des Körpers
-    position: new CANNON.Vec3(0, y / 2, -z / 2 - h / 2), // Anfangsposition (x, y, z)
-  });
-  wallBackBodyCA.addShape(wallBackCA);
-
-  const wallFront = new BoxGeometry(x, y + 0.1, h); // Maßstab in Three.js
-  const wallFrontMesh = new Mesh(wallFront, material);
-  wallFrontMesh.position.set(0, (y + 0.04) / 2, z / 2 + h / 2 - 0.265);
-  wallFrontMesh.rotation.x = -Math.PI / 12;
-
-  const wallFrontCA = new CANNON.Box(
+  // 4. Vorderwand (schräg, jetzt korrekt angehoben)
+  const frontWallShape = new CANNON.Box(
     new CANNON.Vec3(x / 2, (y + 0.1) / 2, h / 2)
-  ); // Rechteckige Box (2x1x0.5)
-  const wallFrontBodyCA = new CANNON.Body({
-    mass: 0, // Die Masse des Körpers
-    position: new CANNON.Vec3(0, (y + 0.04) / 2, z / 2 + h / 2 - 0.265), // Anfangsposition (x, y, z)
-  });
-  wallFrontBodyCA.addShape(wallFrontCA);
-  const quaternion = new Quaternion();
-  quaternion.setFromEuler(wallFrontMesh.rotation); // Rotation des Meshes als Quaternion
-  wallFrontBodyCA.quaternion.set(
-    quaternion.x,
-    quaternion.y,
-    quaternion.z,
-    quaternion.w
+  );
+  const frontWallQuaternion = new CANNON.Quaternion();
+  frontWallQuaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 12);
+  shoppingCartBody.addShape(
+    frontWallShape,
+    new CANNON.Vec3(0, basketBottomY + y / 2 - 0.05, -z / 2),
+    frontWallQuaternion
   );
 
-  /*productSelection.add(wallBackMesh);
-  productSelection.add(wallFrontMesh);
-  //productSelection.add(wallRightMesh);
-  productSelection.add(wallLeftMesh);
-  productSelection.add(mesh);*/
+  shoppingCartBody.fixedRotation = true; // Verhindert, dass der Wagen umkippt
 
-  world.addBody(boxBody);
-  world.addBody(wallFrontBodyCA);
-  world.addBody(wallBackBodyCA);
-  world.addBody(wallLeftBodyCA);
-  world.addBody(wallRightBodyCA);
+  return shoppingCartBody;
 };

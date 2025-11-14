@@ -49,7 +49,8 @@ export async function createShelves(
     );
     // Position des Regals berechnen
     shelf.position.x = currPos;
-    shelf.position.y = shelfHeight / 2; // KORREKTUR: Regale auf dem Boden (y=0) positionieren (Mitte bei 1, Unterkante bei 0)
+    // KORREKTUR: Die Unterkante des Regals soll auf dem Boden (Y=-0.5) stehen. Der Mittelpunkt ist dann bei -0.5 + halbe Höhe.
+    shelf.position.y = -1.0 + (shelfHeight / 2);
     shelf.position.z = -shelfWidth / 2 - posCounter * (shelfWidth + dist); // Z-Achse bleibt konstant (eine Linie)
     if (currPos < 0) {
       shelf.rotation.y = Math.PI / 2;

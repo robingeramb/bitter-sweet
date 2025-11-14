@@ -1,10 +1,16 @@
 import * as THREE from "three";
 import { EXRLoader } from "three/examples/jsm/loaders/EXRLoader.js";
-const rgbeLoader = new EXRLoader(loadingManager);
+import { loadingManager } from "./useThree";
+
+let exrLoader: EXRLoader | null = null;
+function getLoader() {
+  if (!exrLoader) exrLoader = new EXRLoader(loadingManager);
+  return exrLoader;
+}
 
 export function loadEXR(path: string): Promise<any> {
   return new Promise((resolve, reject) => {
-    rgbeLoader.load(
+    getLoader().load(
       `/models/globallights/${path}`,
       (texture) => {
         texture.mapping = THREE.EquirectangularReflectionMapping; // Für Reflexionen

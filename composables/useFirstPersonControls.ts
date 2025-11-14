@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { selectMode, productView } from "@/composables/useThree"; // NEU: selectMode und productView importieren
-import { watch } from "vue";
+import { watch, markRaw } from "vue";
 
 export const useFirstPersonControls = (
   camera: THREE.Camera,
@@ -8,6 +8,9 @@ export const useFirstPersonControls = (
 ) => {
   // Manuelle Steuerung für sanfte Kamerabewegung
   const euler = new THREE.Euler(0, 0, 0, "YXZ");
+  // KORREKTUR: Stelle sicher, dass die übergebene Kamera niemals reaktiv wird.
+  // Dies verhindert den 'modelViewMatrix' Proxy-Fehler.
+  markRaw(camera);
   const PI_2 = Math.PI / 2;
 
   const moveState = {
@@ -32,9 +35,6 @@ export const useFirstPersonControls = (
   const maxRotation = { x: Math.PI / 8, y: Math.PI / 4 }; // Max. 22.5° hoch/runter, 45° seitlich
 
   const onKeyDown = (event: KeyboardEvent) => {
-    // KORREKTUR: Bewegungseingaben nur verarbeiten, wenn wir NICHT im selectMode sind.
-    if (selectMode.value) return;
-
     switch (event.code) {
       case "KeyW":
       case "ArrowUp":
@@ -78,6 +78,9 @@ export const useFirstPersonControls = (
 
   const onMouseMove = (event: MouseEvent) => {
     // KORREKTUR: Die Mausbewegung soll die Kamera immer steuern, außer in der Produkt-Detailansicht.
+    // Wenn productView aktiv ist, wird die Mausbewegung von onMouseMove in productSelection.ts gehandhabt.
+    if (productView.value) return;
+
     // Wir entfernen die `!isLocked` Prüfung.
     const movementX = event.movementX || 0; 
     const movementY = event.movementY || 0;
@@ -89,7 +92,6 @@ export const useFirstPersonControls = (
 
   const onPointerLockChange = () => {
     isLocked = document.pointerLockElement === domElement;
-    console.log("FPV: PointerLock changed. isLocked:", isLocked); // NEU: Debug-Log
   };
 
   const onPointerLockError = () => {
@@ -139,64 +141,20 @@ export const useFirstPersonControls = (
     direction.x = Number(moveState.right) - Number(moveState.left);
     direction.normalize(); // Stellt konstante Geschwindigkeit in alle Richtungen sicher
 
-    console.log("FPV Update: isLocked =", isLocked, "selectMode =", selectMode.value, "Camera quaternion before FPV rotation:", camera.quaternion.toArray()); // NEU: Debug-Log
     // KORREKTUR: Wende die Kamerarotation an, solange wir NICHT im selectMode sind.
     // Dies ermöglicht die Kamerasteuerung per Maus sofort nach dem Verlassen des selectMode (via ESC),
     // auch wenn der Pointer noch nicht wieder gesperrt ist. Der Benutzer muss dann nur noch klicken, um die Bewegung zu starten.
     // KORREKTUR: Die Kamerarotation soll nur von der `productView` abhängen, nicht mehr vom `isLocked`-Status.
-    // Die Bewegung (velocity) wird weiterhin durch `isLocked` und `selectMode` gesteuert.
+    // Die Bewegung (velocity) wird weiterhin durch `isLocked` und `selectMode` gesteuert. // KORREKTUR: Kamerarotation im productView deaktivieren, damit die Maus das Produkt drehen kann.
     if (!productView.value) {
       euler.setFromQuaternion(camera.quaternion);
-      
-      // KORREKTUR: Wende die Mausbewegung grundsätzlich an.
-      // Die Dämpfung im selectMode wird den Wert von rotationVelocity modifizieren, bevor er hier verwendet wird.
-      let finalRotationVelocity = rotationVelocity.clone();
-      
-      if (selectMode.value) {
-        // KORREKTUR: Verhindere das "Aufstauen" der Bewegung am Rand.
-        // Wenn die Kamera am Rand ist und die Maus sich weiter in diese Richtung bewegt,
-        // wird die Geschwindigkeit für diese Richtung auf Null gesetzt.
-        const boundaryMargin = 0.001; // Ein kleiner Puffer, um Fließkomma-Ungenauigkeiten zu vermeiden.
-        if ((euler.y >= initialSelectModeEuler.y + maxRotation.y - boundaryMargin && finalRotationVelocity.x < 0) ||
-            (euler.y <= initialSelectModeEuler.y - maxRotation.y + boundaryMargin && finalRotationVelocity.x > 0)) {
-          finalRotationVelocity.x = 0;
-        }
-        if ((euler.x >= initialSelectModeEuler.x + maxRotation.x - boundaryMargin && finalRotationVelocity.y < 0) ||
-            (euler.x <= initialSelectModeEuler.x - maxRotation.x + boundaryMargin && finalRotationVelocity.y > 0)) {
-          finalRotationVelocity.y = 0;
-        }
+      euler.y -= rotationVelocity.x;
+      euler.x -= rotationVelocity.y;
 
-        // Wende die exponentielle Dämpfung an, die jetzt korrekt funktioniert.
-        const dampingPower = 2.0;
-        const progressY = Math.abs(euler.y - initialSelectModeEuler.y) / maxRotation.y;
-        const progressX = Math.abs(euler.x - initialSelectModeEuler.x) / maxRotation.x;
-        finalRotationVelocity.x *= Math.pow(1.0 - Math.min(progressY, 1.0), dampingPower);
-        finalRotationVelocity.y *= Math.pow(1.0 - Math.min(progressX, 1.0), dampingPower);
-      }
-
-      // 4. Wende die (potenziell gedämpfte) Mausbewegung an.
-      euler.y -= finalRotationVelocity.x;
-      euler.x -= finalRotationVelocity.y;
-
-      // 5. Begrenze die Rotation je nach Modus (als finales Sicherheitsnetz).
-      if (selectMode.value) {
-        const clampedX = THREE.MathUtils.clamp(euler.x, initialSelectModeEuler.x - maxRotation.x, initialSelectModeEuler.x + maxRotation.x);
-        if (clampedX !== euler.x) {
-          rotationVelocity.y = 0; // Stoppe vertikale Geschwindigkeitsakkumulation
-        }
-        euler.x = clampedX;
-
-        const clampedY = THREE.MathUtils.clamp(euler.y, initialSelectModeEuler.y - maxRotation.y, initialSelectModeEuler.y + maxRotation.y);
-        if (clampedY !== euler.y) {
-          rotationVelocity.x = 0; // Stoppe horizontale Geschwindigkeitsakkumulation
-        }
-        euler.y = clampedY;
-      } else {
-        euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
-      }
+      // Normale Begrenzung im FPV-Modus
+      euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
 
       camera.quaternion.setFromEuler(euler);
-      console.log("FPV Update: Camera rotation APPLIED. New camera quaternion:", camera.quaternion.toArray()); // NEU: Debug-Log
     }
 
     prevTime = time;
@@ -205,13 +163,15 @@ export const useFirstPersonControls = (
   // NEU: Funktion, um die interne Euler-Rotation von außen zu setzen.
   const setRotationFromQuaternion = (quaternion: THREE.Quaternion) => {
     euler.setFromQuaternion(quaternion, "YXZ");
-    console.log("FPV: Rotation explicitly set from quaternion.");
   };
 
   // NEU: Beobachte den selectMode, um die initiale Rotation zu speichern
   watch(selectMode, (isSelectMode) => {
     if (isSelectMode) {
       initialSelectModeEuler.setFromQuaternion(camera.quaternion, "YXZ");
+      // KORREKTUR: Setze die Rotationsgeschwindigkeit zurück, um ein "Mitnehmen" der Bewegung
+      // aus dem FPV-Modus zu verhindern und eine symmetrische Begrenzung zu gewährleisten.
+      rotationVelocity.set(0, 0);
     }
   });
 

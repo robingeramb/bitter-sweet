@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import * as CANNON from "cannon";
-import { camera, scene, useMovePlayerTo, selectMode, productView, selectedProduct, lastClickedObject, mouse, raycaster, _playerBody } from "@/composables/useThree";
+import { camera, scene, useMovePlayerTo, selectMode, productView, selectedProduct, lastClickedObject, mouse, raycaster, _playerBody, _outlinePass, unlockControls, lockControls, cartControls } from "@/composables/useThree";
+import { markRaw } from "vue";
+import { gsap } from "gsap";
 import { shelves } from "@/composables/createShelves"; // KORREKTUR: 'shelves' aus der richtigen Datei importieren.
 
 const productsGrid = [
@@ -21,7 +23,7 @@ let isDragging = false;
 let clickedObject;
 let previousMousePosition = { x: 0, y: 0 };
 
-export function clickEvent(event) {
+export function clickEvent(event: MouseEvent) {
   // KORREKTUR: Der Klick kommt jetzt immer aus der Mitte des Bildschirms,
   // sowohl im FPV- als auch im selectMode.
   mouse.x = 0;
@@ -29,7 +31,7 @@ export function clickEvent(event) {
   raycaster.setFromCamera(mouse, camera);
   let intersects;
   if (productView.value && selectedProduct.value) {
-    intersects = raycaster.intersectObjects([selectedProduct]);
+    intersects = raycaster.intersectObjects([selectedProduct.value]);
   } else {
     intersects = raycaster.intersectObjects(shelves);
   }
@@ -37,58 +39,33 @@ export function clickEvent(event) {
   // --- KORRIGIERTE LOGIK ---
   
   // Wenn wir nichts getroffen haben, beenden wir die Funktion.
-  if (intersects.length === 0) {
+  // KORREKTUR: Auch die Distanz prüfen. Wenn das getroffene Objekt zu weit weg ist, ignorieren.
+  if (intersects.length === 0 || intersects[0].distance > 3.0) {
     return;
   }
   
-  // Fall 1: Wir sind NICHT im selectMode. Der Klick soll uns zum Regal teleportieren.
-  // KORREKTUR: Die Prüfung auf isLocked() wird entfernt. Ein Klick auf ein Regal soll immer den Teleport auslösen,
-  // solange wir nicht bereits im selectMode sind.
-  if (!selectMode.value) {
-    let clickedShelf = intersects[0].object;
-    
-    // NEU: Console.log, um den Klick zu bestätigen.
-    console.log("Regal geklickt!", clickedShelf);
-
-    while (clickedShelf.parent && clickedShelf.parent !== scene) {
-      clickedShelf = clickedShelf.parent;
-    }
-
-    // KORREKTUR: Die Positionsberechnung war falsch. Wir müssen die X-Position anpassen, nicht die Z-Position.
-    const playerPosition = new CANNON.Vec3();
-    const distanceFromShelf = 2.0; // Abstand zum Regal
-
-    playerPosition.z = clickedShelf.position.z; // Die Z-Position des Spielers sollte mit der des Regals übereinstimmen.
-    // KORREKTUR: Behalte die aktuelle Y-Position des Spielers bei, um Sprünge zu vermeiden.
-    if (_playerBody) {
-      playerPosition.y = _playerBody.position.y;
-    }
-    if (clickedShelf.position.x > 0) {
-      // Rechtes Regal (schaut zur negativen X-Achse), also muss der Spieler eine kleinere X-Position haben.
-      playerPosition.x = clickedShelf.position.x - distanceFromShelf;
-    } else {
-      // Linkes Regal (schaut zur positiven X-Achse), also muss der Spieler eine größere X-Position haben.
-      playerPosition.x = clickedShelf.position.x + distanceFromShelf;
-    }
-
-    useMovePlayerTo(playerPosition, new THREE.Vector3(clickedShelf.position.x, 0.9, clickedShelf.position.z));
-    selectMode.value = true;
-  } 
-  // Fall 2: Wir sind im selectMode, aber noch nicht in der Produktansicht. Der Klick wählt ein Produkt aus.
-  else if (selectMode.value && !productView.value) {
+  // --- VEREINFACHTE LOGIK ---
+  // Ein Klick auf ein Produkt (nicht in der Produktansicht) führt direkt zur Produktauswahl.
+  // Der Teleport-Schritt wird entfernt.
+  if (!productView.value) {
     clickedObject = intersects[0].object;
-    lastClickedObject.value = clickedObject; // NEU: Das Originalobjekt speichern
-    while ( // @ts-ignore
-      clickedObject.parent &&
-      clickedObject.parent !== scene &&
-      !clickedObject.userData.finalLayer
-    ) {
-      clickedObject = clickedObject.parent;
+
+    // Finde die Elterngruppe des Produkts, die geklont werden soll.
+    let productGroup = clickedObject;
+    while (
+      productGroup.parent &&
+      productGroup.parent !== scene && // @ts-ignore
+      !productGroup.userData.finalLayer
+    ) { // @ts-ignore
+      productGroup = productGroup.parent;
     }
-    handleProductSelection(clickedObject);
+
+    // KORREKTUR: Übergib die gefundene Produktgruppe.
+    // lastClickedObject wird jetzt direkt in handleProductSelection gesetzt.
+    handleProductSelection(productGroup);
   } 
-  // Fall 3: Wir sind in der Produktansicht.
-  else if (productView.value) {
+  // Fall 2: Wir sind bereits in der Produktansicht.
+  else { // productView.value ist true
     if (intersects.length > 0 && intersects[0].object === selectedProduct.value) {
       console.log("fitting");
     }
@@ -98,19 +75,43 @@ export function clickEvent(event) {
 // NEU: Funktion zur Behandlung der Produktauswahl
 function handleProductSelection(clickedObject: THREE.Object3D) {
   if (clickedObject.userData.productName) {
-    productView.value = true;
-    // KORREKTUR: Das Originalobjekt klonen und für die Detailansicht vorbereiten. // @ts-ignore
-    selectedProduct.value = clickedObject.clone();
-    if (selectedProduct.value.isMesh) { // @ts-ignore
-      selectedProduct.value.geometry = clickedObject.geometry.clone(); // @ts-ignore
-      selectedProduct.value.geometry.center();
-    }
- // @ts-ignore
-    selectedProduct.value.scale.copy(clickedObject.scale);
-    clickedObject.visible = false; // Originalobjekt ausblenden
+    // Schritt 1: Originales Produkt-Objekt ausblenden und für später speichern.
+    clickedObject.visible = false;
+    lastClickedObject.value = clickedObject;
 
-    // Produkt in der Detailansicht positionieren und Rotationssteuerung aktivieren
-    activateProductView(selectedProduct);
+    // Schritt 2: In den Produktansichts-Modus wechseln, um die Buttons anzuzeigen.
+    productView.value = true;
+
+    // NEU: Hebe die Cursorsperre auf, damit der Benutzer das Produkt drehen kann.
+    unlockControls();
+
+    // Schritt 3: Das Objekt klonen und sichtbar machen.
+    // KORREKTUR: Den Klon sofort als nicht-reaktiv markieren, um den Proxy-Fehler zu verhindern.
+    const clone = clickedObject.clone();
+    selectedProduct.value = markRaw(clone);
+    selectedProduct.value.visible = true;
+
+    // --- KORREKTE POSITIONIERUNG ---
+    // Schritt 4: Den Klon ZUERST zur Szene hinzufügen.
+    // Dadurch werden seine Transformationen relativ zur Welt und nicht mehr zum Regal interpretiert.
+    scene.add(selectedProduct.value);
+
+    // Schritt 5: Die Welt-Position und -Ausrichtung der Kamera abrufen.
+    const cameraPosition = new THREE.Vector3();
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldPosition(cameraPosition);
+    camera.getWorldDirection(cameraDirection);
+
+    // Schritt 6: Die Position des Klons in Weltkoordinaten setzen.
+    // Er wird 0.8 Einheiten vor der Kamera platziert.
+    selectedProduct.value.position.copy(cameraPosition).add(cameraDirection.multiplyScalar(0.8));
+    // Das Objekt zur Kamera ausrichten.
+    selectedProduct.value.lookAt(cameraPosition);
+
+    // NEU: Füge das geklonte Produkt zur Outline-Pass hinzu
+    _outlinePass.selectedObjects = [selectedProduct.value];
+
+    // Schritt 5 (WIEDERHERGESTELLT): Aktiviere die Maus-Rotation für das Produkt.
     addRotationControls();
   }
 }
@@ -121,24 +122,55 @@ export function productHover() {
 
 export function selectedProductToCart() {
   removeRotationControls();
-  if (selectedProduct.value) {
-    deleteObjekt(lastClickedObject.value); // KORREKTUR: Verwende das gespeicherte Originalobjekt
-    useAddProductToCart(selectedProduct.value, scaleAmount);
-    setTimeout(() => {
-      productView.value = false;
-    }, 200);
+  // NEU: Entferne das Produkt aus der Outline-Pass
+  _outlinePass.selectedObjects = [];
+
+  // KORREKTUR: Übergib das Originalobjekt und das angezeigte Produkt an die Warenkorb-Logik.
+  // Das Klonen und Löschen wird dort zentral gehandhabt.
+  if (selectedProduct.value && lastClickedObject.value) {
+    // NEU: Animiere das Produkt zuerst über den Einkaufswagen.
+
+    // NEU: Pausiere die Wagenverfolgung, während das Produkt in den Korb fliegt.
+    cartControls.pause();
+    
+    // Deaktiviere die Buttons, um doppelte Klicks zu verhindern.
+    productView.value = false;
+
+    // Zielposition ist 0.8 Einheiten über der Einkaufswagen-Gruppe.
+    const targetPosition = productSelection.position.clone().add(new THREE.Vector3(0, 0.8, 0));
+
+    gsap.to(selectedProduct.value.position, {
+      x: targetPosition.x,
+      y: targetPosition.y,
+      z: targetPosition.z,
+      duration: 0.5, // Animationsdauer in Sekunden
+      ease: "power2.inOut",
+      onComplete: () => {
+        // Wenn die Animation abgeschlossen ist, übergeben wir das Produkt an die Physik.
+        useAddProductToCart(selectedProduct.value!, lastClickedObject.value!);
+        // Setze die Referenzen zurück, nachdem die Aktion abgeschlossen ist.
+        selectedProduct.value = null;
+        lastClickedObject.value = null;
+      },
+    });
   }
 }
 
 export function selectedProductToShelf() {
   removeRotationControls();
-  spotLight.intensity = 0;
-  if (selectedProduct.value && lastClickedObject.value) { // KORREKTUR: Prüfe beide Objekte
+  // NEU: Entferne das Produkt aus der Outline-Pass
+  _outlinePass.selectedObjects = [];
+
+  if (lastClickedObject.value) { // KORREKTUR: Prüfe nur das Originalobjekt
     lastClickedObject.value.visible = true; // KORREKTUR: Mache das Originalobjekt wieder sichtbar
-    deleteObjekt(selectedProduct.value);
-    setTimeout(() => {
-      productView.value = false;
-    }, 200);
+    // Da wir in `handleProductSelection` keinen Klon mehr erstellen, müssen wir auch keinen löschen.
+    if (selectedProduct.value) {
+      deleteObjekt(selectedProduct.value);
+    }
+    productView.value = false;
+
+    // NEU: Aktiviere den Cursor Lock sofort wieder, um nahtlos in den selectMode zurückzukehren.
+    lockControls();
   }
 }
 
@@ -176,23 +208,23 @@ function removeRotationControls() {
   window.removeEventListener("mousemove", onMouseMove);
 }
 
-function onMouseDown(event: MouseEvent) {
+function onMouseDown(event: MouseEvent): void {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  let mouseDownObj: THREE.Mesh;
+  let mouseDownObj: THREE.Object3D | undefined;
   raycaster.setFromCamera(mouse, camera);
   let intersects;
-  if (productView.value) {
-    if (selectedProduct.value.isMesh) { // @ts-ignore
+  if (productView.value && selectedProduct.value) {
+    if (selectedProduct.value instanceof THREE.Mesh) {
       intersects = raycaster.intersectObjects([selectedProduct.value]);
     } else {
-      intersects = raycaster.intersectObjects(selectedProduct.value.children); // @ts-ignore
+      intersects = raycaster.intersectObjects(selectedProduct.value.children);
     }
   } else {
     intersects = raycaster.intersectObjects(shelves);
   }
   if (intersects.length > 0 && !productView.value) {
-    mouseDownObj = intersects[0].object;
+    mouseDownObj = intersects[0].object as THREE.Mesh;
   }
   if (
     (mouseDownObj == selectedProduct.value || intersects.length > 0) &&
@@ -212,8 +244,15 @@ function onMouseMove(event: MouseEvent) {
 
   const deltaX = event.clientX - previousMousePosition.x;
 
-  // Rotation um den eigenen Mittelpunkt (nur Y-Achse)
-  selectedProduct.value.rotation.y += deltaX * 0.01; // @ts-ignore
+  // KORREKTUR: Rotation um die LOKALE Y-Achse des Objekts.
+  // `multiply` wendet die Rotation im lokalen Koordinatensystem des Objekts an.
+  // Das Ergebnis ist eine intuitive Drehung um die eigene, geneigte Achse.
+  const rotationAmount = deltaX * 0.01;
+  const rotationQuaternion = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 1, 0), // Die lokale Y-Achse
+    rotationAmount
+  );
+  selectedProduct.value.quaternion.multiply(rotationQuaternion);
 
   previousMousePosition = { x: event.clientX, y: event.clientY };
 }
