@@ -82,7 +82,7 @@ export const useFirstPersonControls = (
     if (productView.value) return;
 
     // Wir entfernen die `!isLocked` Prüfung.
-    const movementX = event.movementX || 0; 
+    const movementX = event.movementX || 0;
     const movementY = event.movementY || 0;
 
     // Addiere Mausbewegung zur Rotationsgeschwindigkeit
@@ -94,9 +94,7 @@ export const useFirstPersonControls = (
     isLocked = document.pointerLockElement === domElement;
   };
 
-  const onPointerLockError = () => {
-    console.error("PointerLockControls: Unable to lock pointer.");
-  };
+  const onPointerLockError = () => {};
 
   const lock = () => {
     domElement.requestPointerLock();

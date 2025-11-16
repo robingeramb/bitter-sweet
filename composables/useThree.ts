@@ -33,7 +33,7 @@ const playerShelfContactMaterial = new CANNON.ContactMaterial(
     friction: 0.0, // KORREKTUR: Reibung auf 0 setzen, um sanftes Gleiten an Wänden zu ermöglichen.
     restitution: 0.0, // Kein Abprallen
     contactEquationStiffness: 1e7, // Steifigkeit reduziert, um Ruckeln zu minimieren
-    contactEquationRelaxation: 4,  // Relaxation erhöht für "weichere" Kollisionen
+    contactEquationRelaxation: 4, // Relaxation erhöht für "weichere" Kollisionen
   }
 );
 world.addContactMaterial(playerShelfContactMaterial);
@@ -72,7 +72,7 @@ const shelfShelfContactMaterial = new CANNON.ContactMaterial(
     friction: 0.5, // Etwas Reibung
     restitution: 0.0, // Kein Abprallen
     contactEquationStiffness: 1e8, // Sehr steif, um Penetration zu verhindern
-    contactEquationRelaxation: 1,  // Wenig Relaxation für harte Kollisionen
+    contactEquationRelaxation: 1, // Wenig Relaxation für harte Kollisionen
   }
 );
 world.addContactMaterial(shelfShelfContactMaterial);
@@ -85,7 +85,7 @@ const productShoppingCartContactMaterial = new CANNON.ContactMaterial(
     friction: 0.8, // Hohe Reibung, damit Produkte im Wagen bleiben
     restitution: 0.1, // Leichter Abprall
     contactEquationStiffness: 1e8, // Sehr steif für stabile Kontakte
-    contactEquationRelaxation: 3,  // Etwas Relaxation
+    contactEquationRelaxation: 3, // Etwas Relaxation
   }
 );
 world.addContactMaterial(productShoppingCartContactMaterial);
@@ -109,10 +109,10 @@ const shoppingCartGroundContactMaterial = new CANNON.ContactMaterial(
   shoppingCartMaterial,
   groundMaterial,
   {
-    friction: 0.3,      // Etwas Reibung, um Rutschen zu verhindern.
-    restitution: 0.0,   // KORREKTUR: Keine Abprall-Elastizität, um Hüpfen zu verhindern.
+    friction: 0.3, // Etwas Reibung, um Rutschen zu verhindern.
+    restitution: 0.0, // KORREKTUR: Keine Abprall-Elastizität, um Hüpfen zu verhindern.
     contactEquationStiffness: 1e7, // KORREKTUR: Steifigkeit wieder leicht erhöht für einen festen Kontakt.
-    contactEquationRelaxation: 8,  // KORREKTUR: Relaxation stark erhöht, um der Physik-Engine mehr Spielraum zur sanften Lösung von Kollisionen zu geben.
+    contactEquationRelaxation: 8, // KORREKTUR: Relaxation stark erhöht, um der Physik-Engine mehr Spielraum zur sanften Lösung von Kollisionen zu geben.
   }
 );
 world.addContactMaterial(shoppingCartGroundContactMaterial);
@@ -162,7 +162,7 @@ export let _outlinePass: OutlinePass;
 export const camera = new THREE.PerspectiveCamera(50, 200 / 200, 0.1, 30);
 markRaw(camera); // KORREKTUR: Verhindert, dass Vue die Kamera reaktiv macht und den Proxy-Fehler auslöst.
 export const productSelection = new THREE.Group();
-markRaw(productSelection); // KORREKTUR: Verhindert, dass die Gruppe reaktiv wird. 
+markRaw(productSelection); // KORREKTUR: Verhindert, dass die Gruppe reaktiv wird.
 export const physicObjects = new Map<THREE.Object3D, CANNON.Body>();
 export const bodiesToRemove = new Set<CANNON.Body>(); // NEU: Set zum sicheren Entfernen von Körpern
 export let currX = ref();
@@ -241,7 +241,10 @@ export function useShoppingCartBody(shoppingCartBody: CANNON.Body) {
   _shoppingCartBody = shoppingCartBody;
 }
 
-export function useMovePlayerTo(position: CANNON.Vec3, lookAtTarget: THREE.Vector3) {
+export function useMovePlayerTo(
+  position: CANNON.Vec3,
+  lookAtTarget: THREE.Vector3
+) {
   if (_playerBody) {
     // KORREKTUR: Die gesamte Teleport-Logik wird hier zentralisiert.
 
@@ -338,7 +341,10 @@ export function useThree() {
 }
 
 // NEU: Hilfsfunktion zum Erstellen eines Debug-Meshes für einen Cannon.js Body
-export function createCannonDebugger(scene: THREE.Scene, body: CANNON.Body): THREE.Object3D {
+export function createCannonDebugger(
+  scene: THREE.Scene,
+  body: CANNON.Body
+): THREE.Object3D {
   const debugMaterial = new THREE.MeshBasicMaterial({
     color: 0xff0000, // KORREKTUR: Farbe auf Rot ändern
     wireframe: true,
@@ -351,14 +357,20 @@ export function createCannonDebugger(scene: THREE.Scene, body: CANNON.Body): THR
   body.shapes.forEach((shape, index) => {
     let geometry;
     if (shape instanceof CANNON.Box) {
-      geometry = new THREE.BoxGeometry(shape.halfExtents.x * 2, shape.halfExtents.y * 2, shape.halfExtents.z * 2);
+      geometry = new THREE.BoxGeometry(
+        shape.halfExtents.x * 2,
+        shape.halfExtents.y * 2,
+        shape.halfExtents.z * 2
+      );
     } else if (shape instanceof CANNON.Sphere) {
       geometry = new THREE.SphereGeometry(shape.radius);
     } else if (shape instanceof CANNON.Cylinder) {
       // NEU: Unterstützung für Zylinder-Formen hinzufügen
       // KORREKTUR: Die Standard-CANNON.Cylinder-Klasse speichert die Konstruktor-Argumente nicht.
       // Wir müssen die Dimensionen aus den Vertices ableiten.
-      const cylinderShape = shape as CANNON.Cylinder & { vertices: CANNON.Vec3[] };
+      const cylinderShape = shape as CANNON.Cylinder & {
+        vertices: CANNON.Vec3[];
+      };
       let min_y = Infinity;
       let max_y = -Infinity;
       for (const v of cylinderShape.vertices) {
@@ -371,8 +383,10 @@ export function createCannonDebugger(scene: THREE.Scene, body: CANNON.Body): THR
       let radiusBottom = 0;
       for (const v of cylinderShape.vertices) {
         const r = Math.sqrt(v.x * v.x + v.z * v.z);
-        if (v.y.toFixed(2) === (height / 2).toFixed(2)) radiusTop = Math.max(radiusTop, r);
-        if (v.y.toFixed(2) === (-height / 2).toFixed(2)) radiusBottom = Math.max(radiusBottom, r);
+        if (v.y.toFixed(2) === (height / 2).toFixed(2))
+          radiusTop = Math.max(radiusTop, r);
+        if (v.y.toFixed(2) === (-height / 2).toFixed(2))
+          radiusBottom = Math.max(radiusBottom, r);
       }
       geometry = new THREE.CylinderGeometry(
         radiusTop,
@@ -384,7 +398,9 @@ export function createCannonDebugger(scene: THREE.Scene, body: CANNON.Body): THR
     if (geometry) {
       const mesh = new THREE.Mesh(geometry, debugMaterial);
       mesh.position.copy(body.shapeOffsets[index] as unknown as THREE.Vector3);
-      mesh.quaternion.copy(body.shapeOrientations[index] as unknown as THREE.Quaternion);
+      mesh.quaternion.copy(
+        body.shapeOrientations[index] as unknown as THREE.Quaternion
+      );
       debugMesh.add(mesh);
     }
   });

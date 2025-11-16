@@ -358,7 +358,6 @@ function scrollToReceipt() {
 function scrollToChild() {
   const child = receipt.value?.$el || receipt.value; // Zugriff auf das DOM-Element der Child-Komponente
   if (!child) {
-    console.error("Receipt-Referenz ist undefined.");
     return;
   }
 
