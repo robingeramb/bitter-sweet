@@ -56,7 +56,6 @@ interface Props {
 const props = defineProps<Props>();
 
 onMounted(() => {
-  console.log(normalCont.value.scrollHeight);
   if (normalCont.value.scrollHeight >= window.innerHeight - 400) {
     normalCont.value.classList.add("overflow-y-scroll");
   }
