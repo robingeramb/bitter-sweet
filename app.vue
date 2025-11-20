@@ -1,21 +1,24 @@
 <template>
-  <ClientOnly>
-    <WebcamScene />
-  </ClientOnly>
-  <EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />
-  <Countdown
-    v-if="!endScreen"
-    ref="countdown"
-    class="z-20"
-    @startSetup="startSetup"
-  />
-  <Box
-    v-if="!endScreen"
-    ref="threeJS"
-    class="-z-10"
-    :mousePos="mousePosition"
-    :scrollVal="scrollValue"
-  />
+  <div>
+    <ClientOnly>
+      <WebcamScene />
+    </ClientOnly>
+    <EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />
+    <Countdown
+      v-if="!endScreen"
+      ref="countdown"
+      class="z-20"
+      @startSetup="startSetup"
+    />
+    <Box
+      v-if="!endScreen"
+      ref="threeJS"
+      class="-z-10"
+      :mousePos="mousePosition"
+      :scrollVal="scrollValue"
+    />
+  </div>
+  <!-- <Parallax/> -->
 </template>
 
 <script setup lang="ts">
@@ -26,7 +29,7 @@ function setRestartFunction() {
 
 const mousePosition = ref({ x: 0, y: 0 });
 const threeJS = ref(null);
-const updateMousePosition = (event) => {
+const updateMousePosition = (event: MouseEvent) => {
   mousePosition.value.x = event.clientX;
   mousePosition.value.y = event.clientY;
 };
@@ -34,7 +37,7 @@ const updateMousePosition = (event) => {
 let lastScrollTime = 0;
 const scrollSpeed = 0.01;
 
-const handleWheel = (event) => {
+const handleWheel = (event: WheelEvent) => {
   const deltaY = event.deltaY;
 
   const currentTime = Date.now();
@@ -53,10 +56,12 @@ const handleWheel = (event) => {
   lastScrollTime = currentTime;
 };
 
-const handleKeyDown = (event) => {
+const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === "Escape") {
     scrollValue.value = savedPos.z;
-    threeJS.value.leaveSelectMode();
+    if (threeJS.value) {
+      threeJS.value.leaveSelectMode();
+    }
     selectedProductToShelf();
   }
 };
@@ -68,7 +73,9 @@ function removeListeners() {
 }
 
 function startSetup() {
-  threeJS.value.setupScene();
+  if (threeJS.value) {
+    threeJS.value.setupScene();
+  }
 }
 
 watch(() => endScreen.value, removeListeners);
@@ -88,8 +95,5 @@ onBeforeUnmount(() => {
   padding: 0px;
   margin: 0px;
   font-family: "Poppins", serif;
-}
-
-body {
 }
 </style>

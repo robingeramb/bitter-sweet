@@ -34,6 +34,7 @@ import { shelves } from "@/composables/createShelves";
 import { useFirstPersonControls } from "@/composables/useFirstPersonControls";
 import * as THREE from "three";
 import CANNON from "cannon";
+import gsap from "gsap";
 import type { Intersection } from "three"; // NEU: Expliziter Typ-Import
 
 /* --- Props --- */
@@ -47,6 +48,7 @@ const props = defineProps<Props>(); // FIX: defineProps ist jetzt importiert
 let shoppingCart: THREE.Mesh | null = null;
 let cashRegister: THREE.Mesh;
 let _renderer: THREE.WebGLRenderer;
+let isCartAnimatingBack = ref(false); // NEU: Status für die GSAP-Animation
 let isCartFollowingPlayer = ref(true); // NEU: Steuert, ob der Wagen dem Spieler folgt.
 let _renderLoopId: number;
 let debugYPositions: number[] = []; // NEU: Array zum Speichern der Y-Positionen
@@ -375,7 +377,7 @@ function renderLoop(): void {
 		const isMoving = fpControls?.moveState.forward || fpControls?.moveState.backward || fpControls?.moveState.left || fpControls?.moveState.right;
 
 		// 1. Zielposition vor dem Spieler berechnen
-		if (isMoving && isCartFollowingPlayer.value) { // KORREKTUR: Wagen nur bewegen, wenn das Following aktiv ist.
+		if (isMoving && isCartFollowingPlayer.value && !isCartAnimatingBack.value) { // KORREKTUR: Wagen nur bewegen, wenn das Following aktiv ist und keine Animation läuft.
 			const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
 			forward.y = 0;
 			forward.normalize();
@@ -476,8 +478,51 @@ function pauseCartFollowing(): void {
 }
 
 function resumeCartFollowing(): void {
-  isCartFollowingPlayer.value = true;
-  console.log("Shopping cart following has been resumed.");
+  // Nur ausführen, wenn die Verfolgung pausiert war und keine Animation läuft.
+  if (!isCartFollowingPlayer.value && !isCartAnimatingBack.value && playerBody && shoppingCartBody) {
+    console.log("Resuming cart following with animation...");
+    isCartAnimatingBack.value = true;
+
+    // 1. Zielposition und -rotation berechnen (genau wie im renderLoop)
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    forward.y = 0;
+    forward.normalize();
+
+    const targetPosition = new CANNON.Vec3(playerBody.position.x, shoppingCartBody.position.y, playerBody.position.z);
+    targetPosition.vadd(new CANNON.Vec3(forward.x, 0, forward.z).scale(0.8), targetPosition);
+
+    const targetRotationY = Math.atan2(forward.x, forward.z) + Math.PI;
+    const targetQuaternion = new CANNON.Quaternion();
+    targetQuaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), targetRotationY);
+
+    // 2. GSAP-Animation starten
+    gsap.to(shoppingCartBody.position, {
+      x: targetPosition.x,
+      y: targetPosition.y,
+      z: targetPosition.z,
+      duration: 0.8, // Dauer der Animation in Sekunden
+      ease: "power2.inOut",
+      onUpdate: () => {
+        // Den Körper während der Animation "aufwecken", damit er auf Kollisionen reagiert
+        shoppingCartBody?.wakeUp();
+      },
+      onComplete: () => {
+        isCartAnimatingBack.value = false;
+        isCartFollowingPlayer.value = true; // Jetzt die normale Verfolgung aktivieren
+        console.log("Shopping cart animation finished. Resuming normal follow behavior.");
+      },
+    });
+
+    // Gleichzeitig die Rotation animieren
+    gsap.to(shoppingCartBody.quaternion, {
+      x: targetQuaternion.x,
+      y: targetQuaternion.y,
+      z: targetQuaternion.z,
+      w: targetQuaternion.w,
+      duration: 0.8,
+      ease: "power2.inOut",
+    });
+  }
 }
 /* --- Lifecycle Hooks --- */
 onMounted(() => {
@@ -548,8 +593,9 @@ onMounted(() => {
     // KORREKTUR: Dem Spieler seine Kollisionsgruppe zuweisen, damit er mit dem Boden kollidiert.
     // Er soll NUR mit dem Boden/Regalen kollidieren.
     playerBody.collisionFilterGroup = COLLISION_GROUPS.PLAYER;
-    // KORREKTUR: Der Spieler soll nur noch mit dem Boden und den Regalen kollidieren, nicht mehr mit dem Einkaufswagen.
-    playerBody.collisionFilterMask = COLLISION_GROUPS.GROUND;
+    // KORREKTUR: Der Spieler soll jetzt mit dem Boden UND den Regalen kollidieren.
+    playerBody.collisionFilterMask =
+      COLLISION_GROUPS.GROUND | COLLISION_GROUPS.SHELF;
 
     // Füge die Formen zum Körper hinzu
     playerBody.addShape(sphereShape, new CANNON.Vec3(0, 0, 0)); // Kugel am Ursprung des Körpers
@@ -667,10 +713,9 @@ defineExpose({ setupScene, checkIntersects, pauseCartFollowing, resumeCartFollow
     <div ref="statsContainer" class="stats"></div>
     <canvas class="cursor-none" id="mountId" width="700" height="500" />
     <ProductSelectMenu class="cursor-none" v-if="selectMode || productView" />
-    <Cursor
+    <Cursor v-if="productView"
       :mousePos="mousePos"
       :clickable="clickable"
-      v-if="clockStart"
       class="cursor-none pointer-events-none"
     />
     <!-- NEU: Fadenkreuz für den FPV-Modus -->

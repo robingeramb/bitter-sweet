@@ -139,6 +139,7 @@ export const COLLISION_GROUPS = {
   SHOPPING_CART: 1 << 1,
   PRODUCT: 1 << 2,
   GROUND: 1 << 3,
+  SHELF: 1 << 4,
 };
 
 export { generateShoppingCartBody } from "./generateCannonWorld";

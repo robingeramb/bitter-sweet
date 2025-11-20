@@ -1,5 +1,7 @@
 <template>
   <div>
+    <!-- NEU: Video-Ladebildschirm -->
+    <VideoLoader v-if="showVideoLoader" @video-finished="handleVideoFinish" />
     <!-- Fullscreen Start Screen -->
     <div
       v-if="!gameOver && !clockStart"
@@ -34,7 +36,8 @@
         <Button @click="startGame" class="" :text="'Start'" />
       </div>
 
-      <div
+      <!-- HINWEIS: Der alte Ladebalken wird auskommentiert und durch den VideoLoader ersetzt. -->
+      <!-- <div
         v-if="!clockStart && started"
         class="flex w-full h-full absolute top-0 justify-center backdrop-blur-sm left-0 bg-black bg-opacity-70 flex-col gap-8 items-center"
       >
@@ -47,7 +50,7 @@
           ></div>
         </div>
         <p>{{ loadingMessage }}</p>
-      </div>
+      </div> -->
     </div>
     <!-- Fullscreen Game Over Screen -->
     <div
@@ -188,7 +191,26 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
+import Button from "./Button.vue";
+import VideoLoader from "@/components/VideoLoader.vue"; // NEU: VideoLoader importieren
+import {
+  loadingProgress,
+  loadingMessage,
+  loadedItems,
+  clockStart,
+  endScreen,
+  noodelsCheck,
+  sauceCheck,
+  drinksCheck,
+  snacksCheck,
+  drinksCount,
+} from "@/composables/useThree";
+
+// NEU: Zustände für den Lade-Flow
+const sceneLoaded = ref(false);
+const videoFinishedOnce = ref(false);
+
 const emit = defineEmits(["startSetup"]);
 const time = ref(300); // 5 minutes in seconds
 const started = ref(false);
@@ -202,29 +224,41 @@ const startGame = () => {
   started.value = true;
 };
 
-watch(
-  () => loadingProgress.value,
-  (newValue) => {
-    if (
-      (newValue >= 100 &&
-        started.value &&
-        loadedItems.value > 128 &&
-        clockStart.value == false) ||
-      (newValue >= 100 &&
-        started.value &&
-        testMode == true &&
-        clockStart.value == false)
-    ) {
-      setTimeout(() => {
-        startCountdown();
-      }, 200);
-      // Funktion aufrufen
-    }
+// NEU: Logik, um den Ladebildschirm zu beenden
+const showVideoLoader = computed(() => started.value && !clockStart.value);
+
+const handleVideoFinish = () => {
+  videoFinishedOnce.value = true;
+  // Ruft tryFinishLoading auf, sobald die Videosequenz beendet ist.
+  tryFinishLoading(); 
+};
+
+const tryFinishLoading = () => {
+  if (sceneLoaded.value && videoFinishedOnce.value) {
+    clockStart.value = true;
+    startCountdown();
   }
-);
+};
+
+watch(videoFinishedOnce, (finished) => {
+  if (finished) {
+    tryFinishLoading();
+  }
+});
+
+watch(loadingProgress, (progress) => {
+  if (progress >= 100 && !sceneLoaded.value) {
+    sceneLoaded.value = true;
+    tryFinishLoading();
+  }
+});
 
 const startCountdown = () => {
-  clockStart.value = true;
+  // Verhindern, dass das Intervall mehrfach gestartet wird.
+  if (interval) {
+    return;
+  }
+
   interval = setInterval(() => {
     if (time.value > 0) {
       time.value -= 1;

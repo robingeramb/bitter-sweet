@@ -73,6 +73,10 @@ export async function createShelves(
       mass: 0, // mass: 0 macht das Objekt statisch und unbeweglich
       shape: shelfShape,
       material: shelfPhysicMaterial, // KORREKTUR: Das korrekte Physik-Material zuweisen
+      // KORREKTUR: Weise dem Regal seine korrekte Kollisionsgruppe zu.
+      collisionFilterGroup: COLLISION_GROUPS.SHELF,
+      // KORREKTUR: Lege fest, womit das Regal kollidieren soll (Spieler, Einkaufswagen, Produkte).
+      collisionFilterMask: COLLISION_GROUPS.PLAYER | COLLISION_GROUPS.SHOPPING_CART | COLLISION_GROUPS.PRODUCT,
     });
 
     world.addBody(shelfBody);
