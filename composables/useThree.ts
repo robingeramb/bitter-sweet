@@ -43,10 +43,10 @@ const playerGroundContactMaterial = new CANNON.ContactMaterial(
   playerMaterial,
   groundMaterial,
   {
-    friction: 0, // KORREKTUR: Hohe Reibung, um das "Rutschen auf Eis" zu verhindern.
+    friction: 0, // KORREKTUR: Moderate Reibung, um "Kleben" zu vermeiden.
     restitution: 0.0, // Kein Abprallen.
     contactEquationStiffness: 1e8, // Hohe Steifigkeit, um "Einsinken" zu verhindern.
-    contactEquationRelaxation: 3,
+    contactEquationRelaxation: 10, // KORREKTUR: Erhöht die "Weichheit" der Kollision, was das Rutschen weiter reduziert.
   }
 );
 world.addContactMaterial(playerGroundContactMaterial);
@@ -164,7 +164,25 @@ export const camera = new THREE.PerspectiveCamera(50, 200 / 200, 0.1, 30);
 markRaw(camera); // KORREKTUR: Verhindert, dass Vue die Kamera reaktiv macht und den Proxy-Fehler auslöst.
 export const productSelection = new THREE.Group();
 markRaw(productSelection); // KORREKTUR: Verhindert, dass die Gruppe reaktiv wird.
-export const physicObjects = new Map<THREE.Object3D, CANNON.Body>();
+// KORREKTUR: Die Map selbst muss als "roh" markiert werden, um zu verhindern, dass Vue ihre Inhalte (Schlüssel/Werte) beim Iterieren in Proxies umwandelt.
+// KORREKTUR: Kapseln der physicObjects-Map, um sie vollständig aus dem Reaktivitätssystem von Vue zu entfernen.
+const _physicObjects = new Map<THREE.Object3D, CANNON.Body>();
+export const getPhysicObjects = () => _physicObjects;
+export const setPhysicObject = (mesh: THREE.Object3D, body: CANNON.Body) => _physicObjects.set(mesh, body);
+export const deletePhysicObject = (mesh: THREE.Object3D) => _physicObjects.delete(mesh); // Diese Zeile ist korrekt und muss exportiert werden.
+
+// KORREKTUR: Globale Referenz auf das Einkaufswagen-Mesh als nicht-reaktive Variable.
+let _shoppingCart: THREE.Object3D | null = null;
+export const getShoppingCart = () => _shoppingCart;
+export const setShoppingCart = (cart: THREE.Object3D | null) => { _shoppingCart = cart; };
+
+// NEU: Ein Set, das die Meshes der Produkte im Einkaufswagen speichert.
+export const productsInCart = new Set<THREE.Object3D>();
+
+// KORREKTUR: Globale Liste der Produkte im Einkaufswagen als nicht-reaktives Array.
+const _productsInCart: { mesh: THREE.Object3D; body: CANNON.Body }[] = [];
+export const getProductsInCart = () => _productsInCart;
+
 export const bodiesToRemove = new Set<CANNON.Body>(); // NEU: Set zum sicheren Entfernen von Körpern
 export let currX = ref();
 export let currY = ref();
@@ -173,9 +191,16 @@ export let selectMode = ref(false);
 export const hoveredProduct = ref<string | undefined>();
 export const hoveredMouseX = ref(0);
 export const hoveredMouseY = ref(0);
-export const selectedProduct = ref<THREE.Object3D | null>(null);
+// KORREKTUR: Die reaktive `ref` für `selectedProduct` wird entfernt. Dies ist die Hauptursache für den Proxy-Fehler.
+// Wir verwalten den Zustand stattdessen in einer nicht-reaktiven, gekapselten Variable.
+let _selectedProduct: THREE.Object3D | null = null;
+export const getSelectedProduct = () => _selectedProduct;
+export const setSelectedProduct = (product: THREE.Object3D | null) => { _selectedProduct = product; };
 export const productView = ref(false);
-export const lastClickedObject = ref<THREE.Object3D | null>(null); // NEU: Referenz auf das Originalobjekt im Regal
+// KORREKTUR: Referenz auf das Originalobjekt im Regal als nicht-reaktive Variable.
+let _lastClickedObject: THREE.Object3D | null = null;
+export const getLastClickedObject = () => _lastClickedObject;
+export const setLastClickedObject = (obj: THREE.Object3D | null) => { _lastClickedObject = obj; };
 
 export const raycaster = new THREE.Raycaster();
 export const mouse = new THREE.Vector2();
@@ -191,7 +216,9 @@ export interface ProductData {
   sugarAmount: number;
   [key: string]: any;
 }
-export let productsInCart: ProductData[] = [];
+// KORREKTUR: Umbenannt, um Namenskonflikt mit der Physik-Liste zu vermeiden.
+// Diese Variable speichert die Metadaten der Produkte im Warenkorb.
+export let productsInCartData: ProductData[] = [];
 export const loadingProgress = ref(0);
 export const loadingMessage = ref();
 export const loadedItems = ref(0);

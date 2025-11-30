@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import {
-  defineProps,
-  defineExpose, // NEU: Importiere die Compiler-Makros
-  _shoppingCartBody,
+  defineProps, // KORREKTUR: Import aus 'vue'
+  defineExpose, // KORREKTUR: Import aus 'vue'
   useThree,
   camera,
   scene,
@@ -18,10 +17,13 @@ import {
   hoveredProduct,
   hoveredMouseX,
   hoveredMouseY,
-  selectedProduct,
+  getSelectedProduct, // KORREKTUR: Getter-Funktion anstelle der alten ref importieren
   productView,
   world,
-  physicObjects,
+  getShoppingCart, // KORREKTUR: Getter für den Einkaufswagen importieren
+  setShoppingCart, // KORREKTUR: Setter für den Einkaufswagen importieren
+  getPhysicObjects, // KORREKTUR: Getter für die Physik-Objekte importieren
+  deletePhysicObject, // KORREKTUR: Funktion zum Löschen importieren
   groundMaterial, // NEU: groundMaterial importieren
   bodiesToRemove, // NEU: Importiere die Liste der zu entfernenden Körper
   shoppingCartMaterial, // NEU: shoppingCartMaterial importieren
@@ -29,6 +31,7 @@ import {
   usePlayerBody,
   generateShoppingCartBody,
   useCartControls, // NEU: Importieren, um die Wagen-Steuerung zu registrieren
+  productsInCart, // NEU: Importieren, um Produkte im Korb zu verwalten
   useShoppingCartBody, // NEU: Setter-Funktion importieren
 } from "@/composables/useThree"; // NEU: Zentrales Material importieren
 import { shelves } from "@/composables/createShelves";
@@ -37,8 +40,9 @@ import {
   initDisplayController,
   animateDisplay,
 } from "@/composables/displayController";
+import { onProductCollision } from "@/composables/productCollision"; // FIX: Diese Datei wird im nächsten Schritt erstellt
 
-import * as THREE from "three";
+import * as THREE from "three"; // @ts-ignore
 import CANNON from "cannon";
 import gsap from "gsap";
 import type { Intersection } from "three"; // NEU: Expliziter Typ-Import
@@ -52,7 +56,6 @@ const props = defineProps<Props>(); // FIX: defineProps ist jetzt importiert
 
 /* --- Reactive Variables and References --- */
 let selfCashoutState = true;
-let shoppingCart: THREE.Mesh | null = null;
 let cashRegister: THREE.Mesh;
 let _renderer: THREE.WebGLRenderer;
 let isCartAnimatingBack = ref(false); // NEU: Status für die GSAP-Animation
@@ -97,11 +100,11 @@ function checkIntersects() {
   let intersects: Intersection[] = []; // KORREKTUR: Expliziten Typ verwenden
 
   // Diese Funktion ist jetzt nur noch für das Hovern im productView oder für zukünftige UI-Elemente zuständig.
-  if (productView.value && selectedProduct.value) {
+  if (productView.value && getSelectedProduct()) {
     mouse.x = (props.mousePos.x / window.innerWidth) * 2 - 1;
     mouse.y = -(props.mousePos.y / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
-    intersects = raycaster.intersectObjects([selectedProduct.value]);
+    intersects = raycaster.intersectObjects([getSelectedProduct()!]);
     if (intersects.length > 0) {
       const hoveredObject = intersects[0].object;
       if (
@@ -122,9 +125,11 @@ async function setupScene(): Promise<void> {
   // Diese Funktion lädt nur noch die schweren 3D-Objekte.
 
   const lights = await createLights(floorLength, shelfWidth, shelfLength, dist);
-  scene.add(lights);
+  if (lights) {
+    scene.add(lights);
+  }
 
-  const shoplight = await loadEXR("phone_shop_4k.exr");
+  const shoplight = await loadEXR("phone_shop_4k.exr"); // @ts-ignore
 
   setupFloor();
   setupRoof();
@@ -144,9 +149,16 @@ async function setupScene(): Promise<void> {
 
   postProcessing(cashRegister);
 
-  lights.children.forEach((element) => {
-    (element.children[0] as THREE.Light).shadow.needsUpdate = false;
-  });
+  if (lights) { // @ts-ignore
+    lights.children.forEach((element) => {
+      // KORREKTUR: Stelle sicher, dass das Element eine Gruppe ist und das erste Kind ein Licht mit Schatteneigenschaft ist.
+      const light = element.children[0];
+      if (light && 'shadow' in light) {
+        // @ts-ignore
+        light.shadow.needsUpdate = false;
+      }
+    });
+  }
 }
 
 function setupFloor(): void {
@@ -276,17 +288,18 @@ async function setupShoppingCart(shoplight: any): Promise<void> {
   metal.envMap = shoplight;
   metal.envMapIntensity = 0.1;
 
-  shoppingCart = (await loadModel("shoppingcart.glb")) as THREE.Mesh;
-  if (shoppingCart) {
-    shoppingCart.scale.set(0.01, 0.01, 0.01);
+  const cartMesh = (await loadModel("shoppingcart.glb")) as THREE.Mesh;
+  setShoppingCart(markRaw(cartMesh)); // KORREKTUR: markRaw hier anwenden
+  if (getShoppingCart()) {
+    getShoppingCart()!.scale.set(0.01, 0.01, 0.01);
     // Die Position wird in onMounted gesetzt, um sicherzustellen, dass sie mit den Zielpositionen übereinstimmt.
-    shoppingCart.traverse((child) => {
+    getShoppingCart()!.traverse((child: THREE.Object3D) => { // KORREKTUR: 'child' explizit typisiert
       child.castShadow = true;
       if ("material" in child) {
         (child as THREE.Mesh).material = metal;
       }
     });
-    scene.add(shoppingCart);
+    scene.add(getShoppingCart()!);
 
     // NEU: Erstelle den physikalischen Körper für den Einkaufswagen
     shoppingCartBody = generateShoppingCartBody();
@@ -297,7 +310,7 @@ async function setupShoppingCart(shoplight: any): Promise<void> {
     shoppingCartBody.position.set(0, -0.9, 3); // Setze die Startposition
     shoppingCartBody.allowSleep = false; // KORREKTUR: Verhindert, dass der Einkaufswagen einschläft und Kollisionen verpasst.
     useShoppingCartBody(shoppingCartBody); // KORREKTUR: Verwende die Setter-Funktion, um den Körper global verfügbar zu machen.
-    (shoppingCartBody as any).threemesh = shoppingCart; // FIX: Verknüpfe den Physik-Körper mit dem 3D-Modell.
+    (shoppingCartBody as any).threemesh = getShoppingCart(); // FIX: Verknüpfe den Physik-Körper mit dem 3D-Modell.
     world.addBody(shoppingCartBody);
 
     // NEU: Füge ein sichtbares Debug-Mesh hinzu, um die Kollisionsbox zu sehen
@@ -328,16 +341,17 @@ async function setupCashRegister(): Promise<void> {
     cashRegister.position.set(0.8, -0.9, -16); // KORREKTUR: Kasse-Position an neuen Boden anpassen (Base bei Y=0)
     cashRegister.rotation.y = -Math.PI / 2;
     cashRegister.traverse((child) => {
-      child.castShadow = true;
-      if (child.name === "Display") {
-        child.material = displayMaterial;
-        displayMesh = child;
-      } else if (
-        "material" in child &&
-        child.name != "SelfCheckout" &&
-        child.name != "CardReader"
-      ) {
-        (child as THREE.Mesh).material = metalMaterial;
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        if (child.name === "Display") {
+          child.material = displayMaterial;
+          displayMesh = child;
+        } else if (
+          child.name !== "SelfCheckout" &&
+          child.name !== "CardReader"
+        ) {
+          child.material = metalMaterial;
+        }
       }
     });
     scene.add(cashRegister);
@@ -358,22 +372,37 @@ function renderLoop(): void {
 
   animateDisplay();
 
-  // --- VORBEREITUNG FÜR PHYSIK-UPDATE ---
+
   // Synchronisiere alle physischen Objekte (Produkte im Korb) mit ihren visuellen Meshes
   // WICHTIG: Dies muss VOR world.step() geschehen, damit Kollisions-Events auf 'threemesh' zugreifen können.
-  for (const [mesh, body] of physicObjects.entries()) {
+  for (const [mesh, body] of getPhysicObjects().entries()) {
     // Verknüpfe den Physik-Körper mit seinem Mesh, damit die Kollisionslogik darauf zugreifen kann.
+    // KORREKTUR: Wenn ein Produkt im Korb ist, wird sein Körper kinematisch.
+    // Seine Position wird nicht mehr von der Physik-Engine, sondern manuell gesetzt.
+    if (productsInCart.has(mesh)) {
+      continue; // Überspringe die Synchronisation für Produkte im Korb
+    }
     (body as any).threemesh = mesh;
   }
 
   // --- PHYSIK-UPDATE ---
   // Die Physik-Welt wird in jedem Frame aktualisiert.
-  world.step(fixedTimeStep, deltaTime, 10);
+  // KORREKTUR: Die maximale Anzahl der Sub-Schritte (letzter Parameter) wird auf 3 reduziert,
+  // um "Tunneling" zu verhindern, ohne die Performance zu stark zu belasten.
+  world.step(fixedTimeStep, deltaTime, 3);
 
   // --- KORREKTUR: Sicheres Entfernen von Körpern NACH dem Physik-Update ---
   // Iteriere durch die vorgemerkten Körper und entferne sie sicher aus der Welt.
   bodiesToRemove.forEach((body) => {
     world.remove(body);
+    // NEU: Entferne das zugehörige Mesh auch aus der `physicObjects`-Map,
+    // damit seine Position nicht mehr fälschlicherweise synchronisiert wird.
+    for (const [mesh, b] of getPhysicObjects().entries()) {
+      if (b === body) {
+        deletePhysicObject(mesh);
+        break;
+      }
+    }
   });
   bodiesToRemove.clear(); // Leere die Liste für den nächsten Frame.
   // --- SPIELER-UPDATE ---
@@ -414,7 +443,7 @@ function renderLoop(): void {
   }
 
   // --- EINKAUFSWAGEN-UPDATE ---
-  if (shoppingCart && shoppingCartBody) {
+  if (getShoppingCart() && shoppingCartBody) {
     // --- KORREKTUR: Sanftere Verfolgung durch Feder-ähnliche Kräfte statt direkter Geschwindigkeitssteuerung ---
     const isMoving =
       fpControls?.moveState.forward ||
@@ -441,27 +470,28 @@ function renderLoop(): void {
       shoppingCartBody.position.copy(idealPosition);
 
       // 2. Berechne die ideale Rotation und setze sie.
-      shoppingCart.rotation.y = Math.atan2(forward.x, forward.z) + Math.PI;
+      getShoppingCart()!.rotation.y = Math.atan2(forward.x, forward.z) + Math.PI;
       const targetQuaternion = new CANNON.Quaternion();
       targetQuaternion.setFromAxisAngle(
         new CANNON.Vec3(0, 1, 0),
-        shoppingCart.rotation.y
+        getShoppingCart()!.rotation.y
       );
       shoppingCartBody.quaternion.copy(targetQuaternion);
       shoppingCartBody.wakeUp();
     }
 
     // 6. Visuelles Modell mit Physik-Modell synchronisieren
-    shoppingCart.position.copy(
+    getShoppingCart()!.position.copy(
       shoppingCartBody.position as unknown as THREE.Vector3
     );
-    shoppingCart.quaternion.copy(
+    getShoppingCart()!.quaternion.copy(
       shoppingCartBody.quaternion as unknown as THREE.Quaternion
     );
 
-    // Drop-Zone für Produkte mitbewegen
-    productSelection.position.copy(shoppingCart.position);
-    productSelection.position.y = 0.42;
+    // KORREKTUR: Die "Drop-Zone" (productSelection-Gruppe) muss weiterhin
+    // mit dem Einkaufswagen mitbewegt werden, damit die Animation für das
+    // Hineinlegen von Produkten korrekt zur Position des Wagens fliegt.
+    productSelection.position.copy(getShoppingCart()!.position);
   }
 
   // NEU: Synchronisiere alle Debug-Meshes mit ihren Physik-Körpern
@@ -478,9 +508,14 @@ function renderLoop(): void {
 
   // --- SYNCHRONISATION NACH PHYSIK-UPDATE ---
   // Aktualisiere die visuellen Positionen der Objekte basierend auf dem Ergebnis des Physik-Updates.
-  for (const [mesh, body] of physicObjects.entries()) {
-    mesh.position.copy(body.position as unknown as THREE.Vector3);
-    mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion);
+  // ZURÜCKGESETZT: Diese Schleife synchronisiert jetzt wieder ALLE physikalischen Objekte
+  // mit ihren visuellen Gegenstücken.
+  // KORREKTUR: Produkte im Korb werden übersprungen, da ihre visuelle Position bereits an den Wagen gebunden ist.
+  for (const [mesh, body] of getPhysicObjects().entries()) {
+    if (!productsInCart.has(mesh)) {
+      mesh.position.copy(body.position as unknown as THREE.Vector3);
+      mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion);
+    }
   }
 
   // NEU: Permanente Hover-Erkennung über das Fadenkreuz in der Bildschirmmitte
@@ -503,7 +538,7 @@ function renderLoop(): void {
 }
 
 function resetPositions() {
-  if (playerBody && shoppingCartBody && shoppingCart) {
+  if (playerBody && shoppingCartBody && getShoppingCart()) {
     // 1. Spieler zurücksetzen
     // KORREKTUR: Setze den Spieler leicht ÜBER den Boden (Y=-0.5), um eine Startkollision beim Reset zu verhindern.
     const initialPlayerPos = new CANNON.Vec3(0, -0.9, 4); // KORREKTUR: An neue Bodenhöhe anpassen (Boden bei Y=-1.0)
@@ -519,6 +554,21 @@ function resetPositions() {
     shoppingCartBody.position.copy(initialCartPos);
     shoppingCartBody.velocity.set(0, 0, 0);
     shoppingCartBody.angularVelocity.set(0, 0, 0);
+
+    // 3. Produkte aus dem Korb entfernen und zurücksetzen
+    productsInCart.forEach(mesh => {
+      const body = getPhysicObjects().get(mesh);
+      if (body) {
+        // NEU: Entferne die Constraint aus der Physik-Welt
+        if ((body as any).constraint) {
+          world.removeConstraint((body as any).constraint);
+          delete (body as any).constraint;
+        }
+        body.type = CANNON.Body.DYNAMIC; // Zurück zu dynamisch
+      }
+      scene.add(mesh); // Füge das Mesh wieder der Hauptszene hinzu
+    });
+    productsInCart.clear();
   }
 }
 
@@ -615,16 +665,16 @@ onMounted(() => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     _renderer.setSize(window.innerWidth, window.innerHeight);
-    _renderer.setPixelRatio(1);
+    _renderer.setPixelRatio(2);
 
     // KORREKTUR: Kamera beim Start geradeaus schauen lassen.
-    // KORREKTUR: Die Kamera-Augenhöhe an die neue Spieler-Startposition anpassen.
-    camera.lookAt(0, camera.position.y, camera.position.z - 1);
+    // KORREKTUR: Stelle sicher, dass die Kamera exakt horizontal ausgerichtet ist, indem die Y-Komponente des Ziels mit der Y-Position der Kamera übereinstimmt.
+    camera.lookAt(0, camera.position.y, -1);
 
     // KORREKTUR: Die initiale Position des Wagens so setzen, dass sein tiefster Punkt auf dem Boden (Y=-0.5) steht.
     // KORREKTUR: Setze den Wagen leicht über den Boden, um Startkollisionen zu vermeiden.
     const initialCartPos = new THREE.Vector3(0, -0.9, camera.position.z - 1.0); // KORREKTUR: An neue Bodenhöhe anpassen.
-    if (shoppingCart) shoppingCart.position.copy(initialCartPos);
+    if (getShoppingCart()) getShoppingCart()!.position.copy(initialCartPos);
     if (shoppingCartBody)
       shoppingCartBody.position.copy(initialCartPos as unknown as CANNON.Vec3);
 
@@ -642,7 +692,7 @@ onMounted(() => {
     playerBody = new CANNON.Body({
       mass: 5, // NEU: Masse > 0 macht den Körper dynamisch
       material: playerMaterial, // NEU: Material zuweisen
-      linearDamping: 0.99, // KORREKTUR: Dämpfung, um das "Rutschen auf Eis" zu verhindern, ohne die Bewegung zu blockieren.
+      linearDamping: 0.999, // KORREKTUR: Dämpfung, um das "Rutschen auf Eis" zu verhindern. Ein Wert näher an 1 bremst stärker.
       angularDamping: 0.9, // NEU: Dämpfung für Rotationsstabilität
       allowSleep: false,
       // Die Oberkante des Bodens ist bei Y = -0.5. Die Unterseite der Kugel soll bei Y = -0.5 starten.
@@ -671,6 +721,9 @@ onMounted(() => {
 
     playerBody.addEventListener("collide", (event: any) => {
       // Dieser Event wird bei jeder Kollision zwischen dem Spieler und einem anderen Objekt ausgelöst.
+      // NEU: Die allgemeine Kollisionslogik wird hier aufgerufen.
+      // Sie kümmert sich darum, ob es sich um eine Produktkollision handelt.
+      onProductCollision(event);
     });
 
     // NEU: Erstelle ein sichtbares Debug-Mesh für die Kollisionsbox des Spielers
@@ -686,7 +739,10 @@ onMounted(() => {
       // Wenn die Steuerung nicht gesperrt ist (z.B. nach Verlassen des selectMode),
       // soll der Klick NUR die Steuerung sperren und keine andere Aktion auslösen.
       // NEU: Der Klick soll den Cursor nur sperren, wenn wir nicht in der Produktansicht sind.
-      if (!fpControls?.controls.isLocked() && !productView.value) {
+      if (
+        !fpControls?.controls.isLocked() &&
+        !productView.value
+      ) {
         fpControls?.controls.lock();
       } else {
         // KORREKTUR: Die Bewegungssperre wurde entfernt. Klick-Events werden immer ausgeführt, wenn die Steuerung gesperrt ist.
@@ -712,7 +768,7 @@ onMounted(() => {
 watch(selectMode, (isSelectMode: boolean) => {
   if (isSelectMode) {
     // NEU: Wenn wir in den selectMode wechseln, positioniere den Einkaufswagen sofort neu.
-    if (playerBody && shoppingCart) {
+    if (playerBody && getShoppingCart()) {
       // 1. Holen der aktuellen Kameraausrichtung (Blickrichtung des Spielers)
       const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(
         camera.quaternion
@@ -728,13 +784,13 @@ watch(selectMode, (isSelectMode: boolean) => {
       newCartPos.y = playerPos.y + 0.2; // Y-Position anpassen
 
       // 3. Setze die Position des Wagens und der "Lerp"-Ziele sofort auf die neue Position.
-      shoppingCart.position.copy(newCartPos);
+      getShoppingCart()!.position.copy(newCartPos);
       cartTargetPosition.copy(newCartPos);
       smoothedCartTargetPosition.copy(newCartPos);
 
       // 4. (NEU) Richte den Wagen sofort korrekt aus.
       // Der Griff soll zum Spieler zeigen, also um 180 Grad zur Blickrichtung gedreht.
-      shoppingCart.rotation.y = Math.atan2(forward.x, forward.z) + Math.PI;
+      getShoppingCart()!.rotation.y = Math.atan2(forward.x, forward.z) + Math.PI;
 
       // 5. (NEU) Teleportiere den Physik-Körper des Wagens direkt an die neue Position,
       // um einen sauberen Start im selectMode zu gewährleisten.
@@ -760,6 +816,7 @@ defineExpose({
   checkIntersects,
   pauseCartFollowing,
   resumeCartFollowing,
+  leaveSelectMode,
 }); // FIX: defineExpose ist jetzt importiert
 </script>
 

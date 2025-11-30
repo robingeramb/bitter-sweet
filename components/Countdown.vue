@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- NEU: Video-Ladebildschirm -->
-    <VideoLoader v-if="showVideoLoader" @video-finished="handleVideoFinish" />
+    <!-- <VideoLoader v-if="showVideoLoader" @video-finished="handleVideoFinish" /> -->
     <!-- Fullscreen Start Screen -->
     <div
       v-if="!gameOver && !clockStart"
@@ -222,6 +222,8 @@ let interval = null;
 const startGame = () => {
   emit("startSetup");
   started.value = true;
+  // Da der VideoLoader auskommentiert ist, simulieren wir das Ende des Videos sofort.
+  handleVideoFinish();
 };
 
 // NEU: Logik, um den Ladebildschirm zu beenden

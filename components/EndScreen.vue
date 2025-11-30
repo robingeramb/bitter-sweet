@@ -115,7 +115,7 @@ const thirdText = ref();
 const consequences = ref();
 const effectsStore = useSugarEffects();
 const effectList = effectsStore.effects;
-const productCount = productsInCart.length;
+const productCount = productsInCartData.length;
 let showTitel = true;
 let showMainTitel = true;
 let formattedText: string;

@@ -110,7 +110,7 @@ export const useFirstPersonControls = (
     document.addEventListener("pointerlockerror", onPointerLockError);
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", onKeyUp);
-    domElement.addEventListener("click", lock);
+    // domElement.addEventListener("click", lock); // KORREKTUR: Dieser Listener wird entfernt. Das Sperren wird jetzt zentral in Box.vue gehandhabt.
   };
 
   const disconnect = () => {
@@ -120,7 +120,7 @@ export const useFirstPersonControls = (
     document.removeEventListener("pointerlockerror", onPointerLockError);
     document.removeEventListener("keydown", onKeyDown);
     document.removeEventListener("keyup", onKeyUp);
-    domElement.removeEventListener("click", lock);
+    // domElement.removeEventListener("click", lock); // KORREKTUR: Passend zum Hinzufügen entfernt.
   };
 
   const update = () => {

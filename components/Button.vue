@@ -1,10 +1,8 @@
 <template>
-  <div class="flex gap-12">
-    <div
-      class="border-orange-200 select-none border-[1px] rounded-full px-6 font-medium text-2xl bg-orange-500 bg-opacity-50 hover:cursor-pointer hover:bg-opacity-70 py-2 hover:backdrop-blur-3xl backdrop-blur-xl"
-    >
-      {{ props.text }}
-    </div>
+  <div
+    class="select-none border border-gray-400 rounded-xl font-medium text-2xl text-gray-100 bg-gray-700 bg-opacity-70 hover:cursor-pointer hover:bg-gray-600 backdrop-blur-md px-10 py-5 flex items-center justify-center text-center transition-colors"
+  >
+    {{ props.text }}
   </div>
 </template>
 

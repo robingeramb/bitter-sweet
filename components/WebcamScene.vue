@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
 .output_canvas {
   position: fixed;
   top: 0px; /* Abstand oben */
-  left: 50%; /* Abstand links */
+  left: 10%; /* Abstand links */
   transform: translate(-50%, 0);
   width: auto; /* CSS Skaliert proportional */
   height: auto;

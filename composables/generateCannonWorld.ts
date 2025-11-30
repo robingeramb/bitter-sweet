@@ -9,7 +9,7 @@ export const generateShoppingCartBody = (): CANNON.Body => {
 
   const shoppingCartBody = new CANNON.Body({
     mass: 20, // Eine realistische Masse für einen Einkaufswagen
-    type: CANNON.Body.KINEMATIC, // KORREKTUR: Der Wagen wird jetzt kinematisch gesteuert (direkte Positionierung).
+    type: CANNON.Body.KINEMATIC, // KORREKTUR: Der Wagen wird jetzt kinematisch gesteuert. Er wird nicht mehr von Kollisionen beeinflusst.
     linearDamping: 0.0, // Dämpfung ist für kinematische Körper irrelevant.
     angularDamping: 0.0, // KORREKTUR: Dämpfung reduziert, um eine sanfte Drehung zu ermöglichen.
     material: shoppingCartMaterial, // Das korrekte Material für den Einkaufswagen zuweisen
