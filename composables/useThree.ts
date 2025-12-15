@@ -293,7 +293,7 @@ export function useMovePlayerTo(
     // Dies muss VOR dem lookAt erfolgen, damit lookAt von der korrekten Position aus berechnet wird.
     camera.position.x = _playerBody.position.x;
     camera.position.z = _playerBody.position.z;
-    camera.position.y = _playerBody.position.y + 1.1; // Augenhöhe über dem Körpermittelpunkt
+    camera.position.y = _playerBody.position.y + 0.2; // Augenhöhe über dem Körpermittelpunkt
 
     camera.lookAt(lookAtTarget);
 

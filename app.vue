@@ -15,10 +15,9 @@
       ref="threeJS"
       class="-z-10"
       :mousePos="mousePosition"
-      :scrollVal="scrollValue"
     />
   </div>
-  <!-- <Parallax/> -->
+  <!-- <Story/> -->
   <!-- <Ende/> -->
 </template>
 
@@ -35,31 +34,8 @@ const updateMousePosition = (event: MouseEvent) => {
   mousePosition.value.y = event.clientY;
 };
 
-let lastScrollTime = 0;
-const scrollSpeed = 0.01;
-
-const handleWheel = (event: WheelEvent) => {
-  const deltaY = event.deltaY;
-
-  const currentTime = Date.now();
-  const deltaTime = currentTime - lastScrollTime;
-
-  if (deltaTime > 0) {
-    scrollValue.value -= deltaY * scrollSpeed; // Scrollen nach oben
-    if (scrollValue.value >= 4.5) {
-      scrollValue.value = 4.5;
-    }
-    if (scrollValue.value <= -20) {
-      scrollValue.value = -20;
-    }
-  }
-
-  lastScrollTime = currentTime;
-};
-
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === "Escape") {
-    scrollValue.value = savedPos.z;
     if (threeJS.value) {
       threeJS.value.leaveSelectMode();
     }
@@ -68,7 +44,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 function removeListeners() {
-  window.removeEventListener("wheel", handleWheel);
   window.removeEventListener("mousemove", updateMousePosition);
   window.removeEventListener("keydown", handleKeyDown);
 }
@@ -82,7 +57,6 @@ function startSetup() {
 watch(() => endScreen.value, removeListeners);
 
 onMounted(() => {
-  window.addEventListener("wheel", handleWheel);
   window.addEventListener("mousemove", updateMousePosition);
   window.addEventListener("keydown", handleKeyDown);
 });

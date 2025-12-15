@@ -1,23 +1,25 @@
 <template>
   <div v-if="isSceneActive"> <!-- NEU: Wrapper-Div hinzugefügt -->
-    <!-- NEU: Hintergrundsound für die Atmosphäre -->
-    <audio ref="backgroundSound" src="/sound/organic_background.flac" loop muted></audio>
-    <audio ref="bubblesSound" src="/sound/bubbles_background.wav" loop muted></audio>
 
     <!-- NEU: Intro-Overlay für den Startbildschirm (außerhalb des Parallax-Containers) -->
     <div ref="introOverlay" class="intro-overlay">
-      <h1 ref="introText" class="intro-text">This is your liver.</h1>
+      <h1 ref="introText" class="intro-text" v-html="introTextProp"></h1>
     </div>
+
+    <!-- NEU: Sound für Zuckerpartikel -->
+    <audio ref="sugarSound" src="/sound/sand.mp3" loop></audio>
 
     <div class="parallax-container" :style="containerStyle">
     <!-- NEU: SVG-Filter für den turbulenten Hintergrundeffekt -->
     <svg style="display: none">
       <defs>
         <filter id="turbulence-filter" x="-20%" y="-20%" width="140%" height="140%">
-          <!-- Erzeugt ein animiertes Rauschen für den Verschiebungseffekt -->
-          <feTurbulence ref="turbulence" type="fractalNoise" baseFrequency="0.01 0.02" numOctaves="1" result="turbulence" />
-          <!-- Verschiebt die Pixel des Bildes basierend auf dem Rauschen -->
-          <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="30" xChannelSelector="R" yChannelSelector="G" />
+          <!-- KORREKTUR: Erzeugt deutlich sichtbare, großflächige, weiche Wellen. Die Animation der baseFrequency ist langsam und subtil. -->
+          <feTurbulence ref="turbulence" type="fractalNoise" baseFrequency="0.002 0.003" numOctaves="1" seed="0" result="turbulence" />
+          <!-- KORREKTUR: Das Rauschen wird weichgezeichnet, bevor es für die Verzerrung verwendet wird, um Kanten zu eliminieren. stdDeviation wurde erhöht. -->
+          <feGaussianBlur in="turbulence" stdDeviation="5" result="blurredTurbulence" />
+          <!-- KORREKTUR: Nutzt das weichgezeichnete Rauschen und hat eine erhöhte Stärke (scale), um den Effekt deutlicher zu machen. -->
+          <feDisplacementMap in="SourceGraphic" in2="blurredTurbulence" scale="50" xChannelSelector="R" yChannelSelector="G" />
         </filter>
       </defs>
     </svg>
@@ -27,7 +29,7 @@
 
     <!-- Hintergrundbild (ganz hinten) -->
     <img
-      src="/parallax/Innenraum.png"
+      :src="backgroundImage"
       class="parallax-layer background-image"
       alt="Hintergrund"
       :style="{ transform: getLayerStyle(0.1).transform + ' scale(1.5)' }"
@@ -39,9 +41,7 @@
       :key="index"
       class="parallax-layer particle"
       :style="{
-        ...getLayerStyle(particle.depth),
-        top: `${particle.y}%`,
-        left: `${particle.x}%`,
+        transform: getParticleTransform(particle),
         width: `${particle.size}px`,
         height: `${particle.size}px`,
         backgroundColor: particle.color,
@@ -62,9 +62,7 @@
       :key="'dust-' + index"
       class="parallax-layer particle"
       :style="{
-        ...getLayerStyle(particle.depth),
-        top: `${particle.y}%`,
-        left: `${particle.x}%`,
+        transform: getParticleTransform(particle),
         width: `${particle.size}px`,
         height: `${particle.size}px`,
         backgroundColor: particle.color,
@@ -72,20 +70,44 @@
       }"
     ></div>
 
+    <!-- NEU: Hintergrund-Tönung für ungesunden Zustand (Verschoben für korrekte Überlagerung) -->
+    <div ref="backgroundTint" class="background-tint"></div>
+
+    <!-- NEU: Zucker-Partikel (fliegen auf das Organ zu) -->
+    <div
+      v-for="sp in sugarParticles"
+      :key="'sugar-' + sp.id"
+      class="parallax-layer particle sugar-particle"
+      :style="{
+        transform: `translate3d(${sp.x}vw, ${sp.y}vh, 0) rotate(${sp.rotation}deg)`,
+        width: `${sp.size}px`,
+        height: `${sp.size}px`,
+        opacity: sp.opacity,
+        zIndex: 15, /* Über dem Organ */
+      }"
+    ></div>
+
+    <!-- NEU: Zuckerzähler-Text -->
+    <div ref="sugarCounter" class="sugar-counter">
+      <span class="sugar-label-text">sugar per day</span>
+      <span ref="sugarAmountText" class="sugar-amount-text">0g</span>
+    </div>
+
     <!-- NEU: Gesunde Leber (wird überblendet) -->
     <img
-      src="/parallax/Leber_Healthy3.png"
+      ref="healthyOrgan"
+      :src="mainImageHealthy"
       class="parallax-layer foreground"
       :style="getForegroundStyle(1)"
-      alt="Gesunde Leber"
+      alt="Gesundes Organ"
     />
 
     <!-- Vordergrundbild (im Fokus) -->
-    <img ref="unhealthyLiver"
-      src="/parallax/Leber3.png"
-      class="parallax-layer foreground unhealthy-liver"
+    <img ref="unhealthyOrgan" 
+      :src="mainImageDisease"
+      class="parallax-layer foreground"
       :style="getForegroundStyle(1)"
-      alt="Kranke Leber"
+      alt="Krankes Organ"
     />
 
     <!-- NEU: Text-Ebene mit GSAP-Animation -->
@@ -105,9 +127,7 @@
       :key="'fg-' + index"
       class="parallax-layer particle"
       :style="{
-        ...getLayerStyle(particle.depth),
-        top: `${particle.y}%`,
-        left: `${particle.x}%`,
+        transform: getParticleTransform(particle),
         width: `${particle.size}px`,
         height: `${particle.size}px`,
         backgroundColor: particle.color,
@@ -120,6 +140,9 @@
     <div class="bottom-gradient"></div>
     <div class="blur-vignette"></div>
     <div class="vignette"></div>
+
+    <!-- NEU: Overlay für die Unterwasser-Verzerrung -->
+    <div class="underwater-distortion-overlay"></div>
     </div>
 
     <!-- NEU: "Next"-Button -->
@@ -133,9 +156,60 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed, type PropType } from "vue";
 import gsap from "gsap";
 
+// KORREKTUR: Interface für die Text-Objekte, die jetzt auch eine Dauer enthalten.
+interface TextPart {
+  text: string;
+  duration: number;
+}
+
+const props = defineProps({
+  introTextProp: {
+    type: String,
+    required: true,
+  },
+  mainImageHealthy: {
+    type: String,
+    required: true,
+  },
+  mainImageDisease: {
+    type: String,
+    required: true,
+  },
+  backgroundImage: {
+    type: String,
+    default: "/parallax/Innenraum.png",
+  },
+  textPartsProp: {
+    type: Array as PropType<TextPart[]>, // KORREKTUR: Der Typ ist jetzt ein Array von TextPart-Objekten.
+    required: true,
+  },
+  particleColorFunc: {
+    type: Function as PropType<() => string>,
+    required: true,
+  },
+  applyHeartbeatAnimation: {
+    type: Boolean,
+    default: false,
+  },
+  // NEU: Prop, um die Animationsrichtung umzukehren (ungesund -> gesund).
+  reverseAnimation: {
+    type: Boolean,
+    default: false,
+  },
+  // NEU: Prop, um den Zuckerwert zu erhalten und die Animation zu steuern.
+  sugarAmount: {
+    type: Number,
+    default: 100, // Standardwert für einen hohen Zuckerkonsum
+  },
+  // NEU: Prop, um die Referenz auf das zentrale Audio-Element zu erhalten
+  growSoundRef: {
+    type: Object as PropType<HTMLAudioElement | null>,
+    default: null,
+  },
+});
 const emit = defineEmits(['scene-finished']);
 
 interface Particle {
@@ -153,60 +227,54 @@ interface Particle {
   offsetY: number;
 }
 
-// NEU: Array für die Textteile
-const textParts = ref([
-  "25% of all adults suffer from non-alcoholic fatty liver disease.",
-  "At 45g per day, the risk of developing fatty liver disease increases by approximately 25%.",
-  "Fatty liver disease can lead to inflammation, liver fibrosis, cirrhosis, or even liver cancer.<br>It also increases the risk of cardiovascular disease<br>and can shorten life expectancy in the long term."
-]);
+// NEU: Interface für Zucker-Partikel
+interface SugarParticle {
+  id: number;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  size: number;
+  rotation: number;
+  opacity: number;
+}
 
 const textElement = ref<HTMLElement | null>(null);
-const turbulence = ref<SVGElement | null>(null); // NEU: Referenz für das Turbulenz-Element
+const turbulence = ref<SVGElement | null>(null); // KORREKTUR: Ref wieder auf das turbulence-Element
 const introOverlay = ref<HTMLElement | null>(null); // NEU: Referenz für das Intro-Overlay
 const introText = ref<HTMLElement | null>(null); // NEU: Referenz für den Intro-Text
 const textBackdrop = ref<HTMLElement | null>(null); // NEU: Referenz für den Texthintergrund
-const backgroundSound = ref<HTMLAudioElement | null>(null); // Referenz für den organischen Sound
-const bubblesSound = ref<HTMLAudioElement | null>(null); // NEU: Referenz für den Bubbles-Sound
-const unhealthyLiver = ref<HTMLImageElement | null>(null); // NEU: Referenz für die kranke Leber
+const healthyOrgan = ref<HTMLImageElement | null>(null); // NEU: Referenz für das gesunde Organ
+const unhealthyOrgan = ref<HTMLImageElement | null>(null); // NEU: Referenz für das kranke Organ
 const textBlurVignette = ref<HTMLElement | null>(null); // NEU: Referenz für die Text-Vignette
+const sugarSound = ref<HTMLAudioElement | null>(null); // NEU: Referenz für den Zucker-Sound
+const backgroundTint = ref<HTMLElement | null>(null); // NEU: Referenz für die Hintergrund-Tönung
+const sugarCounter = ref<HTMLElement | null>(null); // NEU: Referenz für den Zuckerzähler
+const sugarAmountText = ref<HTMLElement | null>(null); // NEU: Referenz für den Zuckerzähler-Text
 let currentTextIndex = 0;
 const showNextButton = ref(false); // NEU: Steuert die Sichtbarkeit des "Next"-Buttons
 const fadeOutOverlay = ref<HTMLElement | null>(null); // NEU: Referenz für das Fade-Out-Overlay
 const isSceneActive = ref(true); // NEU: Steuert die Sichtbarkeit der gesamten Szene
+const heartbeatScale = ref(1); // KORREKTUR: Vereinfacht für bessere Performance
+
+// NEU: Berechnet die Ziel-Deckkraft für das ungesunde Organ basierend auf dem Zuckerwert.
+const targetOpacity = computed(() => {
+  const dailyLimit = 25;
+  if (props.sugarAmount <= dailyLimit) {
+    return 0; // Gesund: keine Einblendung
+  }
+  // Linearer Anstieg der Opazität: 25g = 0, 50g = 1
+  const opacity = (props.sugarAmount - dailyLimit) / dailyLimit;
+  return Math.min(opacity, 1); // Begrenzen auf maximal 1 (volle Deckkraft ab 50g)
+});
 
 const mouse = ref({ x: 0, y: 0 });
 const targetMouse = ref({ x: 0, y: 0 }); // Zielposition der Maus
 
-// KORREKTUR: Robusterer Mechanismus, der auf die erste Benutzerinteraktion wartet.
-const startSoundOnFirstInteraction = () => {
-  let soundStarted = false;
-  if (backgroundSound.value && backgroundSound.value.paused) {
-    backgroundSound.value.muted = false;
-    backgroundSound.value.play().catch((error: any) => {
-      console.warn("Organischer Sound konnte auch nach Interaktion nicht gestartet werden:", error);
-    });
-    soundStarted = true;
-  }
-  // NEU: Versuche, den zweiten Sound zu starten
-  if (bubblesSound.value && bubblesSound.value.paused) {
-    bubblesSound.value.muted = false;
-    bubblesSound.value.play().catch((error: any) => {
-      console.warn("Bubbles-Sound konnte auch nach Interaktion nicht gestartet werden:", error);
-    });
-    soundStarted = true;
-  }
-
-  if (soundStarted) {
-    // Listener entfernen, nachdem der Sound erfolgreich (oder erfolglos) gestartet wurde,
-    // um ihn nicht bei jeder weiteren Interaktion erneut auszuführen.
-    window.removeEventListener('click', startSoundOnFirstInteraction);
-    window.removeEventListener('keydown', startSoundOnFirstInteraction);
-  }
-};
-
 const backgroundParticles = ref<Particle[]>([]);
 const dustParticles = ref<Particle[]>([]); // NEU: Array für Staubpartikel
 const foregroundParticles = ref<Particle[]>([]);
+const sugarParticles = ref<SugarParticle[]>([]); // NEU: Array für Zuckerpartikel
 const totalParticleCount = 70;
 const dustParticleCount = 200; // NEU: Anzahl der Staubpartikel
 const foregroundParticleCount = 5;
@@ -232,23 +300,6 @@ const containerStyle = computed(() => ({
   // Animiert die Perspektive für einen echten Zoom-Effekt
   perspective: `${perspective.value}px`,
 }));
-
-const getRandomDarkRed = (): string => {
-  // Sehr dunkle, entsättigte Rottöne
-  const red = Math.floor(Math.random() * 40 + 20); // 20-60
-  const green = Math.floor(Math.random() * 10); // 0-10 für leichte Entsättigung
-  const blue = Math.floor(Math.random() * 10); // 0-10 für leichte Entsättigung
-  return `rgb(${red}, ${green}, ${blue})`;
-};
-
-// NEU: Funktion für fast schwarze Partikel
-const getRandomAlmostBlack = (): string => {
-  // KORREKTUR: Erzeugt jetzt ein sehr dunkles Rot anstelle von Grau
-  const red = Math.floor(Math.random() * 50 + 100); // R-Wert im Bereich 100-150 (heller)
-  const green = Math.floor(Math.random() * 20);     // G-Wert im Bereich 0-20
-  const blue = Math.floor(Math.random() * 20);      // B-Wert im Bereich 0-20
-  return `rgb(${red}, ${green}, ${blue})`;
-};
 
 const getEdgePositions = (): { x: number; y: number } => {
   let x: number;
@@ -303,7 +354,7 @@ const generateParticles = () => {
       y: initialY,
       depth,
       size,
-      color: getRandomDarkRed(),
+      color: props.particleColorFunc(),
       blur,
       amplitude: Math.random() * 1.5 + 0.5, // Amplitude für den Hintergrund reduziert (0.5-2%)
       speed: Math.random() * 0.3 + 0.1, // Geschwindigkeit verdoppelt
@@ -327,7 +378,7 @@ const generateParticles = () => {
       y: initialY,
       depth,
       size,
-      color: getRandomDarkRed(),
+      color: props.particleColorFunc(),
       blur,
       amplitude: Math.random() * 5 + 4, // Amplitude für den Vordergrund erhöht (4-9%)
       speed: Math.random() * 1.2 + 1.0, // Geschwindigkeit verdoppelt
@@ -349,7 +400,7 @@ const generateParticles = () => {
       y: initialY,
       depth,
       size: Math.random() * 1.5 + 0.5, // Sehr klein: 0.5px bis 2px
-      color: getRandomAlmostBlack(), // Fast schwarz
+      color: props.particleColorFunc(), // Hier könnte auch eine andere Farb-Funktion als Prop übergeben werden
       blur: 0, // Kein Blur
       amplitude: Math.random() * 3 + 1, // Stärkere, schnellere Bewegung
       speed: Math.random() * 0.8 + 0.4, // Schnellere Geschwindigkeit
@@ -384,6 +435,15 @@ const getLayerStyle = (depth: number) => {
   };
 };
 
+// NEU: Optimierte Funktion für Partikel-Transformation (vermeidet Layout-Thrashing)
+const getParticleTransform = (particle: Particle) => {
+  const moveX = -mouse.value.x * 100 * particle.depth;
+  const moveY = -mouse.value.y * 100 * particle.depth;
+  const translateZ = (particle.depth - 1) * 400;
+
+  return `translate3d(calc(${particle.x}vw + ${moveX}px), calc(${particle.y}vh + ${moveY}px), ${translateZ}px)`;
+};
+
 const getForegroundStyle = (depth: number) => {
   const moveX = -mouse.value.x * 100 * depth;
   const moveY = -mouse.value.y * 100 * depth;
@@ -393,7 +453,7 @@ const getForegroundStyle = (depth: number) => {
 
   return {
     // Die rotate-Transformationen wieder hinzufügen
-    transform: `translateX(-50%) translateY(-50%) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translate3d(${moveX}px, ${moveY}px, 350px)`, // KORREKTUR: Leber deutlich weiter zurückgesetzt für eine kleinere Endgröße
+    transform: `translateX(-50%) translateY(-50%) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translate3d(${moveX}px, ${moveY}px, 350px) scale(${heartbeatScale.value})`, // KORREKTUR: Verwendet jetzt die einzelne Skalierungsvariable
   };
 };
 
@@ -439,11 +499,14 @@ const animateParticles = () => {
       }
     }
 
-    // NEU: Turbulenz-Effekt über JavaScript animieren
-    const freqX = 0.000001 + Math.sin(time * 0.0001) * 0.00005; // Nochmals deutlich breitere Wellen
-    const freqY = 0.025 + Math.cos(time * 0.0002) * 0.01;   // Höhe und Bewegung der Wellen
-    turbulence.value?.setAttribute('baseFrequency', `${freqX} ${freqY}`);
-
+    // KORREKTUR: Die Animation des 'seed' wird entfernt, da sie sprunghaft wirkt.
+    // Stattdessen wird die 'baseFrequency' kontinuierlich und weich oszilliert,
+    // um eine fließende, wellenartige Bewegung zu erzeugen, die natürlicher wirkt.
+    if (turbulence.value) { // KORREKTUR: Angepasste Frequenzen und Oszillationsamplituden für deutlichere, großflächigere Wellen
+      const freqX = 0.002 + Math.sin(time / 8000) * 0.0005; // Erhöhte Basisfrequenz und Amplitude
+      const freqY = 0.003 + Math.cos(time / 7000) * 0.0007; // Erhöhte Basisfrequenz und Amplitude
+      turbulence.value.setAttribute('baseFrequency', `${freqX} ${freqY}`);
+    }
     // Schnellerer Zeitfaktor
     const t = time * 0.0005; // Etwas schneller als vorher
 
@@ -572,77 +635,111 @@ const animateParticles = () => {
   animationFrameId = requestAnimationFrame(loop);
 };
 
-// NEU: GSAP-Animation für den Text
-const animateText = () => {
-  if (!textElement.value || !textBackdrop.value || !textBlurVignette.value) return;
+// KORREKTUR: Die Herz-Animation wird jetzt in einer eigenen Funktion gekapselt.
+const startHeartbeatAnimation = () => {
+  if (!props.applyHeartbeatAnimation) return;
 
-  // KORREKTUR: Prüfen, ob alle Texte angezeigt wurden
-  if (currentTextIndex >= textParts.value.length) {
-    // Alle Texte wurden gezeigt, jetzt alles ausblenden
-    gsap.to([textBackdrop.value, textBlurVignette.value], {
-      opacity: 0,
-      duration: 1.5,
-      ease: "power2.out",
-      onComplete: () => {
-        // Nach 1 Sekunde den "Next"-Button einblenden
-        gsap.delayedCall(0.5, () => {
-          showNextButton.value = true;
-        });
+  // Diese Timeline ist jetzt exakt auf die 1.128s lange Audiodatei abgestimmt.
+  const totalDuration = 1.128;
+
+  // KORREKTUR: Animiert direkt die einzelne 'heartbeatScale'-Ref, was performanter ist.
+  gsap.to(heartbeatScale, {
+      value: 1, // Startwert, die Keyframes übernehmen die eigentliche Animation
+      duration: totalDuration,
+      repeat: -1,
+      ease: "none",
+      keyframes: {
+          "25%":  { value: 1 },
+          "28%":  { value: 1.05 },
+          "30%":  { value: 1.15 },  // 1. Spike bei 338ms
+          "35%":  { value: 1 },
+          "48%":  { value: 1 },
+          "53%":  { value: 1.06 }, // 2. Spike bei 598ms
+          "60%":  { value: 1 },
+          "100%": { value: 1 }
+      },
+      // Der onUpdate-Callback mit Proxy-Objekt wird nicht mehr benötigt.
+  });
+};
+
+// NEU: Funktion zum Erzeugen und Animieren der Zucker-Partikel
+const triggerSugarParticles = () => {
+  // Nur ausführen, wenn wir von gesund zu ungesund animieren
+  if (props.reverseAnimation) return;
+
+  // Anzahl basierend auf sugarAmount (z.B. sugarAmount * 2)
+  const count = Math.floor(props.sugarAmount * 2); 
+  if (count <= 0) return;
+
+  const newParticles: SugarParticle[] = [];
+  
+  for (let i = 0; i < count; i++) {
+    // Startposition: Außerhalb des Bildschirms (Radius > ~70% vom Zentrum 50,50)
+    const angle = Math.random() * Math.PI * 2;
+    const startDist = 70 + Math.random() * 40; // 70% bis 110% Entfernung
+    const startX = 50 + Math.cos(angle) * startDist;
+    const startY = 50 + Math.sin(angle) * startDist;
+
+    // Zielposition: Nahe dem Zentrum (Organ) mit etwas Streuung
+    const endDist = Math.random() * 15; // Innerhalb von 15% Radius um die Mitte
+    const endAngle = Math.random() * Math.PI * 2;
+    const targetX = 50 + Math.cos(endAngle) * endDist;
+    const targetY = 50 + Math.sin(endAngle) * endDist;
+
+    newParticles.push({
+      id: i,
+      x: startX,
+      y: startY,
+      targetX,
+      targetY,
+      size: Math.random() * 3 + 2, // 2px bis 5px
+      rotation: Math.random() * 360,
+      opacity: 0, // Startet unsichtbar
+    });
+  }
+
+  sugarParticles.value = newParticles;
+
+  let maxDuration = 0;
+
+  // Animation: Partikel fliegen zur Mitte (Optimiert & mit Fade-Out)
+  sugarParticles.value.forEach((p) => {
+    const delay = Math.random() * 3;
+    const duration = 2.5;
+    if (delay + duration > maxDuration) maxDuration = delay + duration;
+
+    // Bewegung
+    gsap.to(p, {
+      x: p.targetX,
+      y: p.targetY,
+      rotation: Math.random() * 360 + 180,
+      duration: duration,
+      delay: delay,
+      ease: "power2.in",
+    });
+
+    // Opazität: Einblenden -> Halten -> Ausblenden beim Auftreffen
+    gsap.to(p, {
+      duration: duration,
+      delay: delay,
+      keyframes: {
+        "0%":   { opacity: 0 },
+        "10%":  { opacity: 0.9 }, // Schnell einblenden
+        "80%":  { opacity: 0.9 }, // Sichtbar bleiben
+        "100%": { opacity: 0 }    // Am Ende (beim Auftreffen) ausblenden
       }
     });
-    return; // Animation beenden
-  }
-
-  const el = textElement.value;
-  el.innerHTML = textParts.value[currentTextIndex];
-  
-  const tl = gsap.timeline({
-    onComplete: () => {
-      // Zum nächsten Textteil wechseln und die Animation wiederholen
-      currentTextIndex++; // KORREKTUR: Index einfach erhöhen statt zu loopen
-      // Kurze Pause vor dem Start der nächsten Animation
-      gsap.delayedCall(0.2, animateText);
-    },
   });
-
-  // KORREKTUR: Hintergrund und Vignette nur beim ersten Text einblenden
-  if (currentTextIndex === 0) {
-  }
-
-  tl.fromTo(
-    el,
-    {
-      y: "100%", // Startet unterhalb des sichtbaren Bereichs
-      scale: 2.5,
-      opacity: 0,
-      filter: "blur(12px)",
-    },
-    {
-      y: "0%",
-      scale: 1,
-      opacity: 1,
-      filter: "blur(0px)",
-      duration: 1.5, // Dauer des Hereinfliegens
-      ease: "power3.out",
-    }
-  )
-  // Text für 4 Sekunden sichtbar lassen
-  .to(el, { opacity: 1, duration: 4 })
-  // Text ausblenden
-  .to(el, { opacity: 0, filter: "blur(8px)", y: "-20%", duration: 1, ease: "power2.in" });
 };
 
 // NEU: GSAP-Animation für das Intro
 const runIntroAnimation = () => {
-  if (!introOverlay.value || !introText.value) return;
+  if (!introOverlay.value || !introText.value || !textElement.value || !textBackdrop.value || !textBlurVignette.value || !sugarCounter.value || !sugarAmountText.value || !backgroundTint.value) return;
+
+  const textEl = textElement.value;
 
   const tl = gsap.timeline({
-    onComplete: () => {
-      // Nach Abschluss des Intros die Hauptanimationen starten
-      animateText(); // Nur noch die Text-Animation starten, der Rest startet früher
-    },
   });
-
   // 1. Text fliegt ein
   tl.fromTo(introText.value, 
     { // from
@@ -663,57 +760,174 @@ const runIntroAnimation = () => {
   .to(introText.value, {
     duration: 0.5,
   })
-  // 3. Text und Overlay faden gleichzeitig aus
-  .to([introText.value, introOverlay.value], {
+  // 3. Intro-Text und Overlay faden aus
+  .to([introOverlay.value, introText.value], {
     opacity: 0,
     duration: 1.0, // Schnelleres Ausblenden
     ease: "power2.in",
-    onStart: () => { // KORREKTUR: Beide onStart-Callbacks zusammengefügt
-      gsap.to([textBackdrop.value, textBlurVignette.value], {
-        opacity: 1,
-        duration: 1.5, // Etwas langsamer als das Intro-Fade, für einen weichen Übergang
-        ease: "power2.inOut",
-      });
+    onStart: () => {
+      // Hauptanimation (Zoom, Partikel etc.) starten
       runMainAnimation = true;
       animationStartTime = performance.now();
-      if (unhealthyLiver.value) {
-        unhealthyLiver.value.classList.add('is-visible');
+      // KORREKTUR: Organe initial setzen, je nach Animationsrichtung
+      if (props.reverseAnimation) {
+        // Heilung: Start mit krankem Organ (teilweise sichtbar) über gesundem
+        gsap.set(healthyOrgan.value, { opacity: 1 });
+        gsap.set(unhealthyOrgan.value, { opacity: targetOpacity.value });
+      } else {
+        // Verfall: Start mit gesundem Organ
+        gsap.set(healthyOrgan.value, { opacity: 1 });
+        gsap.set(unhealthyOrgan.value, { opacity: 0 });
       }
+      gsap.delayedCall(zoomDuration / 1000, startHeartbeatAnimation);
     },
     onComplete: () => {
-      // Overlay aus dem DOM entfernen oder verstecken, um Interaktionen zu ermöglichen
       if (introOverlay.value) introOverlay.value.style.display = "none";
     }
-  });
+  })
+  // 4. Gesundes Organ für 2 Sekunden zeigen
+  .to({}, { duration: 2 })
+
+  // 5. Dunkler werden und den ersten Text anzeigen
+  .add(() => {
+    textEl.innerHTML = props.textPartsProp[0].text;
+  })
+  .to([textBackdrop.value, textBlurVignette.value], {
+    opacity: 1,
+    duration: 1.5,
+    ease: "power2.inOut",
+  }, "<") // Gleichzeitig mit dem vorherigen Schritt starten
+  .fromTo(textEl, 
+    { y: "100%", opacity: 0, filter: "blur(12px)" },
+    { y: "0%", opacity: 1, filter: "blur(0px)", duration: 1.5, ease: "power3.out" },
+    "-=1.0" // Startet 1s nach dem Einblenden des Backdrops
+  )
+  .to({}, { duration: props.textPartsProp[0].duration }) // Text für definierte Dauer halten
+
+  // 6. Partikel-Animation 1 Sekunde vor dem nächsten Schritt starten
+  .add(triggerSugarParticles, "-=2.0")
+  // 7. Heller werden, Text ausblenden und Organ-Animation starten
+  .to(textEl, {
+    opacity: 0,
+    filter: "blur(8px)",
+    y: "-20%",
+    duration: 1,
+    ease: "power2.in"
+  })
+  .to([textBackdrop.value, textBlurVignette.value], {
+    opacity: 0,
+    duration: 1.5,
+    ease: "power2.out",
+  }, "<") // Gleichzeitig mit dem Text-Fade-out
+  .to(unhealthyOrgan.value, {
+    opacity: props.reverseAnimation ? 0 : targetOpacity.value, // KORREKTUR: Zielwert je nach Modus
+    duration: 4, // 4 Sekunden Animation von gesund zu ungesund
+    ease: 'power2.inOut',
+    onStart: () => {
+      if (props.growSoundRef) {
+        const sound = props.growSoundRef;
+        sound.currentTime = 0;
+        sound.volume = 0; // Startet leise
+        sound.play();
+
+        // Fade-in über 1 Sekunde
+        gsap.to(sound, { volume: 0.8, duration: 1, ease: 'power1.in' });
+
+        // Fade-out nach 3 Sekunden (dauert 1 Sekunde, endet also bei 4s)
+        gsap.to(sound, {
+          volume: 0,
+          duration: 1,
+          delay: 3, // Startet nach 3 Sekunden
+          ease: 'power1.out',
+          onComplete: () => sound.pause() // Stoppt den Sound nach dem Ausblenden
+        });
+      }
+
+      // NEU: Zucker-Sound synchron mit Grow-Sound abspielen
+      if (sugarSound.value) {
+        const sound = sugarSound.value;
+        sound.currentTime = 0;
+        sound.volume = 0;
+        sound.play().catch(() => {});
+        gsap.to(sound, { volume: 1, duration: 1, ease: 'power1.in' });
+        gsap.to(sound, {
+          volume: 0,
+          duration: 1,
+          delay: 3,
+          onComplete: () => sound.pause()
+        });
+      }
+    }
+  }, "<")
+  // NEU: Hintergrund-Tönung animieren, um den ungesunden Zustand zu verdeutlichen
+  .to(backgroundTint.value, {
+    opacity: props.reverseAnimation ? 0 : targetOpacity.value * 0.8, // KORREKTUR: Deckkraft weiter erhöht
+    duration: 4,
+    ease: 'power2.inOut',
+  }, "<")
+  .add(() => {
+    // NEU: Animation für den Zuckerzähler
+    if (sugarCounter.value && sugarAmountText.value && props.sugarAmount > 0 && !props.reverseAnimation) {
+        const counter = { value: 0 };
+        
+        // Zähler einblenden
+        gsap.to(sugarCounter.value, {
+            opacity: 1,
+            duration: 1,
+            ease: 'power2.out'
+        });
+
+        // Zahl animieren
+        gsap.to(counter, {
+            value: props.sugarAmount,
+            duration: 4, // Dauer der Organ-Animation
+            ease: 'power3.out',
+            onUpdate: () => {
+                if (sugarAmountText.value) {
+                    sugarAmountText.value.textContent = `${Math.round(counter.value)}g`;
+                }
+            }
+        });
+    }
+  }, "<") // Gleichzeitig starten
+
+  // 8. Dunkler werden und den letzten Text anzeigen
+  .add(() => {
+    const lastText = props.textPartsProp[props.textPartsProp.length - 1];
+    textEl.innerHTML = lastText.text;
+  })
+  .to([textBackdrop.value, textBlurVignette.value], {
+    opacity: 1,
+    duration: 1.5,
+    ease: "power2.inOut",
+  })
+  .fromTo(textEl, 
+    { y: "100%", opacity: 0, filter: "blur(12px)" },
+    { y: "0%", opacity: 1, filter: "blur(0px)", duration: 1.5, ease: "power3.out" },
+    "-=1.0"
+  )
+  .to({}, { duration: props.textPartsProp[props.textPartsProp.length - 1].duration }) // Letzten Text halten
+
+  // 9. Alles ausblenden und "Next"-Button zeigen
+  .to(textEl, {
+    opacity: 0,
+    filter: "blur(8px)",
+    y: "-20%",
+    duration: 1,
+    ease: "power2.in"
+  })
+  .to([textBackdrop.value, textBlurVignette.value], {
+    opacity: 0,
+    duration: 1.5,
+    ease: "power2.out",
+    onComplete: () => { showNextButton.value = true; }
+  }, "<");
 };
 
 onMounted(() => {
-  // KORREKTUR: Partikel generieren und bewegen, aber die Hauptanimation (Zoom etc.) noch nicht starten.
   generateParticles();
   animateParticles();
-  // KORREKTUR: Maus-Listener auf das window-Objekt legen, damit er immer aktiv ist.
   window.addEventListener('mousemove', handleMouseMove);
-
-  // KORREKTUR: Versuche, den Sound sofort abzuspielen (wird wahrscheinlich blockiert).
-  if (backgroundSound.value) {
-    backgroundSound.value.volume = 0.25; // Leise Lautstärke für Atmosphäre
-    backgroundSound.value.play().catch((error: any) => {
-      console.warn("Organischer Hintergrundsound konnte nicht automatisch gestartet werden:", error);
-      // Wenn Autoplay fehlschlägt, fügen wir die Listener hinzu, um auf die erste echte Interaktion zu warten.
-      window.addEventListener('click', startSoundOnFirstInteraction);
-      window.addEventListener('keydown', startSoundOnFirstInteraction);
-    });
-  }
-  // NEU: Zweiten Sound ebenfalls versuchen zu starten
-  if (bubblesSound.value) {
-    bubblesSound.value.volume = 0.6; // Etwas andere Lautstärke zur Abmischung
-    bubblesSound.value.play().catch((error: any) => {
-      console.warn("Bubbles-Hintergrundsound konnte nicht automatisch gestartet werden:", error);
-      // Die Listener werden bereits vom ersten Sound hinzugefügt, falls dieser fehlschlägt.
-      // Das ist ausreichend, da der Handler dann beide Sounds startet.
-    });
-  }
-
   // Starte die Intro-Sequenz
   runIntroAnimation();
 });
@@ -738,9 +952,6 @@ const handleNextClick = () => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(animationFrameId);
   window.removeEventListener('mousemove', handleMouseMove); // Listener wieder entfernen
-  // KORREKTUR: Sicherstellen, dass auch die Sound-Listener entfernt werden.
-  window.removeEventListener('click', startSoundOnFirstInteraction);
-  window.removeEventListener('keydown', startSoundOnFirstInteraction);
 });
 </script>
 
@@ -782,8 +993,8 @@ onBeforeUnmount(() => {
   /* Stellt sicher, dass das Bild auch bei starkem Zoom nicht unscharf wird */
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
-  /* NEU: Wendet den SVG-Filter für den turbulenten Effekt an */
-  filter: url(#turbulence-filter) blur(5px);
+  /* KORREKTUR: Der Turbulenz-Filter wird auf ein globales Overlay verschoben, um die gesamte Szene zu beeinflussen. */
+  filter: blur(5px);
 }
 
 .text-container {
@@ -822,6 +1033,7 @@ onBeforeUnmount(() => {
   font-size: 4rem;
   font-weight: bold;
   text-shadow: 0 0 20px rgba(255, 100, 100, 0.3);
+  text-align: center; /* KORREKTUR: Text zentrieren */
   opacity: 0; /* Startet unsichtbar für die GSAP-Animation */
 }
 
@@ -918,24 +1130,48 @@ onBeforeUnmount(() => {
 
 .particle {
   border-radius: 50%;
+  will-change: transform; /* NEU: Performance-Optimierung */
 }
 
-/* --- NEU: Leber-Überblendung --- */
-.unhealthy-liver {
-  opacity: 0; /* Standardmäßig unsichtbar */
+/* NEU: Stil für Zucker-Partikel */
+.sugar-particle {
+  background-color: #fff;
+  border-radius: 1px; /* Leicht eckig für Kristall-Look */
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
 }
-@keyframes fadeInLiver {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+
+/* NEU: Stile für den Zuckerzähler */
+.sugar-counter {
+  position: fixed;
+  bottom: 5vh; /* KORREKTUR: Position nach unten verschoben */
+  left: 50%;
+  transform: translateX(-50%); /* KORREKTUR: Nur horizontal zentrieren */
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  z-index: 5; /* Hinter dem Haupttext, aber vor dem Organ */
+  opacity: 0; /* Startet unsichtbar */
+  pointer-events: none;
+  text-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
 }
-.unhealthy-liver.is-visible {
-  animation: fadeInLiver 15s ease-in-out forwards;
+
+.sugar-amount-text {
+  font-size: 3rem; /* KORREKTUR: Schriftgröße verkleinert */
+  font-weight: bold;
+  display: block;
+  line-height: 1;
 }
+
+.sugar-label-text {
+  font-size: 1rem; /* KORREKTUR: Schriftgröße verkleinert */
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: block;
+}
+
 /* --- Rotierende Lichtstrahlen --- */
+
 @keyframes rotate {
   to {
     transform: rotate(1turn);
@@ -1036,5 +1272,31 @@ onBeforeUnmount(() => {
   opacity: 0;
   pointer-events: none; /* Erlaubt Klicks "durch" das Overlay, solange es unsichtbar ist */
   z-index: 200; /* Ganz oben */
+}
+
+/* --- NEU: Overlay für die Unterwasser-Verzerrung --- */
+.underwater-distortion-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Lässt Klicks durch */
+  backdrop-filter: url(#turbulence-filter);
+  z-index: 150; /* Stellt sicher, dass es über den meisten Inhalten liegt */
+}
+
+/* NEU: Overlay für die grün-gelbe Tönung des Hintergrunds */
+.background-tint {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #8a9a5b; /* KORREKTUR: Ein etwas giftigerer, moosiger Grün-Ton */
+  mix-blend-mode: color; /* KORREKTUR: 'color' ändert nur die Farbe, ohne das Bild abzudunkeln */
+  opacity: 0; /* Wird über GSAP animiert */
+  z-index: 0; /* Hinter dem Organ, aber über dem Hintergrundbild/den Strahlen */
+  pointer-events: none;
 }
 </style>

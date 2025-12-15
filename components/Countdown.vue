@@ -15,42 +15,11 @@
               src="/images/Logo.png"
               alt=""
             />
-
-            <!---<h1
-              class="absolute top-2 right-2 blur-sm whitespace-nowrap text-8xl hdl mb-16 text-black opacity-20"
-            >
-              Bitter-Sweet
-            </h1>--->
           </div>
-
-          <p
-            class="bg-black bg-opacity-50 backdrop-blur-sm border-opacity-70 shadow-xl border-white border-[1px] p-10 rounded-2xl mb-8 text-white"
-          >
-            Your parents are coming to visit tonight. <br />You want to cook a
-            good pasta meal for 3 people and still need drinks and snacks.<br />
-            You're running late and only have 5 minutes to do the shopping.
-          </p>
-          <h1 class="text-4xl font-bold">{{ formattedTime }}</h1>
         </div>
 
         <Button @click="startGame" class="" :text="'Start'" />
       </div>
-
-      <!-- HINWEIS: Der alte Ladebalken wird auskommentiert und durch den VideoLoader ersetzt. -->
-      <!-- <div
-        v-if="!clockStart && started"
-        class="flex w-full h-full absolute top-0 justify-center backdrop-blur-sm left-0 bg-black bg-opacity-70 flex-col gap-8 items-center"
-      >
-        <div
-          class="bg-orange-300 bg-opacity-100 h-4 backdrop-blur-sm w-80 relative rounded-full overflow-hidden"
-        >
-          <div
-            :style="{ width: (loadedItems / 130) * 100 + '%' }"
-            class="h-full bg-orange-500"
-          ></div>
-        </div>
-        <p>{{ loadingMessage }}</p>
-      </div> -->
     </div>
     <!-- Fullscreen Game Over Screen -->
     <div
@@ -107,7 +76,7 @@
             </svg>
           </div>
         </div>
-        <div class="handwritten text-sm text-black">Noodles</div>
+        <div class="handwritten text-sm text-black">Pasta</div>
       </div>
       <div class="flex gap-3 items-center">
         <div class="checkbox mb-1 ml-3">
@@ -196,8 +165,6 @@ import Button from "./Button.vue";
 import VideoLoader from "@/components/VideoLoader.vue"; // NEU: VideoLoader importieren
 import {
   loadingProgress,
-  loadingMessage,
-  loadedItems,
   clockStart,
   endScreen,
   noodelsCheck,
@@ -214,7 +181,6 @@ const videoFinishedOnce = ref(false);
 const emit = defineEmits(["startSetup"]);
 const time = ref(300); // 5 minutes in seconds
 const started = ref(false);
-const testMode = true;
 
 const gameOver = ref(false);
 let interval = null;
@@ -222,7 +188,7 @@ let interval = null;
 const startGame = () => {
   emit("startSetup");
   started.value = true;
-  // Da der VideoLoader auskommentiert ist, simulieren wir das Ende des Videos sofort.
+  // The video loader will now be shown and will emit 'video-finished' when it's done.
   handleVideoFinish();
 };
 

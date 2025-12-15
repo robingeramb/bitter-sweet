@@ -27,12 +27,13 @@ import {
   groundMaterial, // NEU: groundMaterial importieren
   bodiesToRemove, // NEU: Importiere die Liste der zu entfernenden Körper
   shoppingCartMaterial, // NEU: shoppingCartMaterial importieren
-  createCannonDebugger, // NEU: createCannonDebugger importieren
   usePlayerBody,
   generateShoppingCartBody,
   useCartControls, // NEU: Importieren, um die Wagen-Steuerung zu registrieren
   productsInCart, // NEU: Importieren, um Produkte im Korb zu verwalten
   useShoppingCartBody, // NEU: Setter-Funktion importieren
+  shelfMaterial, // NEU: Material für Wände importieren
+  COLLISION_GROUPS, // NEU: Kollisionsgruppen importieren
 } from "@/composables/useThree"; // NEU: Zentrales Material importieren
 import { shelves } from "@/composables/createShelves";
 import { useFirstPersonControls } from "@/composables/useFirstPersonControls";
@@ -50,7 +51,6 @@ import type { Intersection } from "three"; // NEU: Expliziter Typ-Import
 /* --- Props --- */
 interface Props {
   mousePos: { x: number; y: number };
-  scrollVal: number;
 }
 const props = defineProps<Props>(); // FIX: defineProps ist jetzt importiert
 
@@ -126,6 +126,7 @@ async function setupScene(): Promise<void> {
 
   const lights = await createLights(floorLength, shelfWidth, shelfLength, dist);
   if (lights) {
+    lights.position.y = 2.4 - 3.16;
     scene.add(lights);
   }
 
@@ -134,10 +135,11 @@ async function setupScene(): Promise<void> {
   setupFloor();
   setupRoof();
   setupWalls();
+  await setupDoor();
   await setupShoppingCart(shoplight);
   await setupCashRegister();
 
-  createShelves(
+  await createShelves( // KORREKTUR: await hinzufügen, um sicherzustellen, dass die Regale fertig sind
     { x1: -1.6, x2: 1.6 },
     floorLength,
     shelfWidth,
@@ -205,11 +207,8 @@ function setupFloorPhysics(): void {
       COLLISION_GROUPS.PRODUCT |
       COLLISION_GROUPS.SHOPPING_CART,
   });
+  (floorBody as any).name = "Boden"; // Name für Debugging
   world.addBody(floorBody);
-
-  // DEBUG: Erstelle ein sichtbares Mesh für die Kollisionsbox des Bodens und füge es zur Map hinzu.
-  const floorDebugMesh = createCannonDebugger(scene, floorBody);
-  debugMeshes.set(floorBody, floorDebugMesh);
 }
 
 function setupRoof(): void {
@@ -233,7 +232,7 @@ function setupRoof(): void {
   );
 
   _roof = new THREE.Mesh(roofGeometry, roofMaterial);
-  _roof.position.set(0, 3.16, -floorLength / 2 + 4);
+  _roof.position.set(0, 2.4, -floorLength / 2 + 4);
   (_roof.material as THREE.MeshStandardMaterial).transparent = true;
   scene.add(_roof);
 }
@@ -249,25 +248,82 @@ function setupWalls(): void {
     false,
     0.1
   );
-  const wallGeometry = new THREE.BoxGeometry(
-    0.1,
-    floorLength + 4,
-    floorLength + 4
-  );
+  
+  const wallHeight = 10;
+  const sideWallLength = 40; // Länger, um den Raum abzuschneiden
+  const endWallWidth = 10; // Breit genug für die Enden
 
-  const wall = new THREE.Mesh(wallGeometry, wallMaterial);
-  (wall as any).castShadow = true;
-  wall.receiveShadow = true;
+  const sideGeometry = new THREE.BoxGeometry(0.1, wallHeight, sideWallLength);
+  const endGeometry = new THREE.BoxGeometry(endWallWidth, wallHeight, 0.1);
 
-  const wall2 = wall.clone();
-  const wall3 = wall.clone();
+  // Linke Wand
+  const wall1 = new THREE.Mesh(sideGeometry, wallMaterial);
+  wall1.position.set(-1.91, wallHeight / 2 - 1.55, -6);
+  wall1.receiveShadow = true;
 
-  wall.position.set(-1.91, -floorLength / 2 + 0.4, -floorLength / 2 + 8);
-  wall2.position.set(1.91, -floorLength / 2 + 0.4, -floorLength / 2 + 8);
-  wall3.position.set(1.91, 1.3, -floorLength - 2);
-  wall3.rotation.y = Math.PI / 2;
+  // Rechte Wand
+  const wall2 = wall1.clone();
+  wall2.position.set(1.91, wallHeight / 2 - 1.55, -6);
 
-  scene.add(wall, wall2, wall3);
+  // Vordere Wand (hinter der Kasse)
+  const wall3 = new THREE.Mesh(endGeometry, wallMaterial);
+  wall3.position.set(0, wallHeight / 2 - 1.55, -19);
+  wall3.receiveShadow = true;
+
+  // Hintere Wand (hinter dem Spielerstart)
+  const wall4 = wall3.clone();
+  wall4.position.set(0, wallHeight / 2 - 1.55, 6);
+
+  scene.add(wall1, wall2, wall3, wall4);
+}
+
+function setupWallPhysics(): void {
+  const wallHeight = 10;
+  const sideWallLength = 40;
+  const endWallWidth = 10;
+  const wallThickness = 0.1;
+
+  const sideShape = new CANNON.Box(new CANNON.Vec3(wallThickness / 2, wallHeight / 2, sideWallLength / 2));
+  const endShape = new CANNON.Box(new CANNON.Vec3(endWallWidth / 2, wallHeight / 2, wallThickness / 2));
+
+  const createBody = (shape: CANNON.Shape, x: number, z: number, name: string, y?: number) => {
+    const body = new CANNON.Body({
+      mass: 0, // Statisch
+      material: shelfMaterial, // Gleiches Material wie Regale (rutschig)
+      shape: shape,
+      position: new CANNON.Vec3(x, y ?? (wallHeight / 2 - 1.05), z), // Physik-Position leicht höher als visuell (angepasst an Boden)
+      collisionFilterGroup: COLLISION_GROUPS.SHELF, // Wir nutzen die Regal-Gruppe für statische Hindernisse
+      collisionFilterMask: COLLISION_GROUPS.PLAYER | COLLISION_GROUPS.SHOPPING_CART | COLLISION_GROUPS.PRODUCT
+    });
+    (body as any).name = name; // NEU: Name für Debugging
+    world.addBody(body);
+  };
+
+  // KORREKTUR: Wände etwas weiter nach außen schieben (von 1.91 auf 2.1), um Konflikte mit den Regalen zu vermeiden.
+  createBody(sideShape, -2.1, -6, "Wand Links"); // Links
+  createBody(sideShape, 2.1, -6, "Wand Rechts");  // Rechts
+  createBody(endShape, 0, -19, "Wand Vorne");    // Vorne
+  createBody(endShape, 0, 6, "Wand Hinten");      // Hinten
+}
+
+async function setupDoor(): Promise<void> {
+  const doorMesh = (await loadModel("door-opt.glb")) as THREE.Mesh;
+  if (doorMesh) {
+    doorMesh.position.set(0, 0.15, -18.85);
+    doorMesh.scale.set(1, 1, 1);
+    doorMesh.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    scene.add(doorMesh);
+
+    const doorMesh2 = doorMesh.clone();
+    doorMesh2.position.set(0, 0.15, 5.85);
+    doorMesh2.rotation.y = Math.PI;
+    scene.add(doorMesh2);
+  }
 }
 
 async function setupShoppingCart(shoplight: any): Promise<void> {
@@ -312,12 +368,6 @@ async function setupShoppingCart(shoplight: any): Promise<void> {
     useShoppingCartBody(shoppingCartBody); // KORREKTUR: Verwende die Setter-Funktion, um den Körper global verfügbar zu machen.
     (shoppingCartBody as any).threemesh = getShoppingCart(); // FIX: Verknüpfe den Physik-Körper mit dem 3D-Modell.
     world.addBody(shoppingCartBody);
-
-    // NEU: Füge ein sichtbares Debug-Mesh hinzu, um die Kollisionsbox zu sehen
-    const cartDebugMesh = createCannonDebugger(scene, shoppingCartBody);
-    // KORREKTUR: Die Sichtbarkeit wird jetzt zentral im renderLoop gesteuert.
-    // Die initiale Sichtbarkeit wird durch den ersten Durchlauf des Loops gesetzt.
-    debugMeshes.set(shoppingCartBody, cartDebugMesh);
   }
 }
 
@@ -412,7 +462,7 @@ function renderLoop(): void {
     if (fpControls.controls.isLocked()) {
       fpControls.update(); // Maus-Rotation anwenden
 
-      const moveForce = 120;
+      const moveForce = 200;
       const force = new CANNON.Vec3();
       const euler = new THREE.Euler().setFromQuaternion(
         camera.quaternion,
@@ -431,13 +481,17 @@ function renderLoop(): void {
         force.set(direction.x * moveForce, 0, direction.z * moveForce);
       }
 
-      playerBody.applyLocalForce(force, new CANNON.Vec3(0, 0, 0));
+      // KORREKTUR: applyForce (Weltkoordinaten) statt applyLocalForce verwenden.
+      // Außerdem Rotation explizit zurücksetzen, um Verdrehen an Ecken zu verhindern.
+      playerBody.applyForce(force, playerBody.position);
+      playerBody.quaternion.set(0, 0, 0, 1);
+      playerBody.angularVelocity.set(0, 0, 0);
     }
 
     // Kamera-Position mit dem Physik-Körper synchronisieren.
     camera.position.set(
       playerBody.position.x,
-      playerBody.position.y + 0.8,
+      playerBody.position.y + 0.2,
       playerBody.position.z
     );
   }
@@ -492,12 +546,6 @@ function renderLoop(): void {
     // mit dem Einkaufswagen mitbewegt werden, damit die Animation für das
     // Hineinlegen von Produkten korrekt zur Position des Wagens fliegt.
     productSelection.position.copy(getShoppingCart()!.position);
-  }
-
-  // NEU: Synchronisiere alle Debug-Meshes mit ihren Physik-Körpern
-  for (const [body, mesh] of debugMeshes.entries()) {
-    mesh.position.copy(body.position as unknown as THREE.Vector3);
-    mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion);
   }
 
   if (taskDone.value == true) {
@@ -644,6 +692,7 @@ onMounted(() => {
 
     // NEU: Physik für den Boden initialisieren
     setupFloorPhysics(); // FIX: canvas.value wird jetzt geprüft
+    setupWallPhysics(); // NEU: Physik für die Wände initialisieren
 
     // 2. FPV-Steuerung sofort initialisieren und verbinden
     // KORREKTUR: Stelle sicher, dass canvas.value existiert, bevor es verwendet wird.
@@ -678,16 +727,11 @@ onMounted(() => {
     if (shoppingCartBody)
       shoppingCartBody.position.copy(initialCartPos as unknown as CANNON.Vec3);
 
-    // KORREKTUR: Spieler-Kollisionskörper als Kapsel (Sphere + Cylinder) für mehr Stabilität
+    // KORREKTUR: Spieler-Kollisionskörper als Box statt Kapsel, um das "Hochrutschen" an Wänden zu verhindern.
     const playerRadius = 0.3;
     const playerHeight = 1.8;
-    const sphereShape = new CANNON.Sphere(playerRadius);
-    const cylinderShape = new CANNON.Cylinder(
-      playerRadius,
-      playerRadius,
-      playerHeight - 2 * playerRadius,
-      8
-    );
+    // Box nimmt halbe Ausmaße (HalfExtents)
+    const playerShape = new CANNON.Box(new CANNON.Vec3(playerRadius, playerHeight / 2, playerRadius));
 
     playerBody = new CANNON.Body({
       mass: 5, // NEU: Masse > 0 macht den Körper dynamisch
@@ -707,11 +751,7 @@ onMounted(() => {
       COLLISION_GROUPS.GROUND | COLLISION_GROUPS.SHELF;
 
     // Füge die Formen zum Körper hinzu
-    playerBody.addShape(sphereShape, new CANNON.Vec3(0, 0, 0)); // Kugel am Ursprung des Körpers
-    playerBody.addShape(
-      cylinderShape,
-      new CANNON.Vec3(0, (playerHeight - playerRadius) / 2, 0)
-    ); // Zylinder über der Kugel
+    playerBody.addShape(playerShape, new CANNON.Vec3(0, 0, 0)); // Box zentriert
 
     playerBody.fixedRotation = true; // Verhindert, dass die Kapsel umfällt.
     world.addBody(playerBody);
@@ -720,18 +760,19 @@ onMounted(() => {
     usePlayerBody(playerBody);
 
     playerBody.addEventListener("collide", (event: any) => {
+      // DEBUG: Logge Kollisionen
+      const otherBody = event.body;
+      if (otherBody && (otherBody as any).name) {
+        if ((otherBody as any).name !== "Boden") console.log("Kollision mit:", (otherBody as any).name);
+      } else if (otherBody) {
+        console.log("Kollision mit unbekanntem Objekt ID:", otherBody.id);
+      }
       // Dieser Event wird bei jeder Kollision zwischen dem Spieler und einem anderen Objekt ausgelöst.
       // NEU: Die allgemeine Kollisionslogik wird hier aufgerufen.
       // Sie kümmert sich darum, ob es sich um eine Produktkollision handelt.
       onProductCollision(event);
     });
 
-    // NEU: Erstelle ein sichtbares Debug-Mesh für die Kollisionsbox des Spielers
-    // und füge es zur zentralen Map hinzu, damit es im Render-Loop aktualisiert wird.
-    const playerDebugMesh = createCannonDebugger(scene, playerBody);
-    debugMeshes.set(playerBody, playerDebugMesh);
-    (playerBody as any).threemesh = playerDebugMesh; // FIX: TypeScript mitteilen, dass wir hier eine benutzerdefinierte Eigenschaft hinzufügen.
-    playerDebugMesh.visible = false;
 
     // KORREKTUR: Der 'click'-Listener empfängt nur MouseEvents. Die Tasten-Logik wird in den 'keydown'-Listener verschoben.
     window.addEventListener("click", (event: MouseEvent) => {
