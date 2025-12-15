@@ -1,6 +1,12 @@
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { loadingManager } from "./useThree";
 
-const loader = new GLTFLoader(loadingManager);
+// KORREKTUR: Initialisiere den Loader erst bei Bedarf, um zirkuläre Abhängigkeiten zu vermeiden.
+let loader: GLTFLoader | null = null;
+function getLoader() {
+  if (!loader) loader = new GLTFLoader(loadingManager);
+  return loader;
+}
 let models = {};
 
 export function loadModel(name: string): Promise<any> {
@@ -13,7 +19,7 @@ export function loadModel(name: string): Promise<any> {
   }
 
   return new Promise((resolve, reject) => {
-    loader.load(
+    getLoader().load(
       `/models/${name}`, // Pfad zum GLB-Modell
       (gltf) => {
         const model = gltf.scene;
@@ -24,7 +30,6 @@ export function loadModel(name: string): Promise<any> {
       },
       undefined, // Fortschrittsanzeige, falls gewünscht
       (error) => {
-        console.error("An error occurred while loading the model:", error);
         reject(error); // Fehler an die Promise weitergeben
       }
     );

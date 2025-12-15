@@ -1,10 +1,4 @@
-import {
-  useThree,
-  shoppingCart,
-  productSelection,
-  currX,
-  currY,
-} from "@/composables/useThree";
+import { currX, currY } from "@/composables/useThree";
 
 export function useMoveCamera() {
   function moveCameraZ(z: number) {

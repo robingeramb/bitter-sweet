@@ -8,7 +8,7 @@
       <div
         class="border-t border-dashed border-gray-500 mb-4 mt-2 -mx-10"
       ></div>
-      <li class="mb-4" v-for="(child, index) in productsInCart" :key="index">
+      <li class="mb-4" v-for="(child, index) in productsInCartData" :key="index">
         <p class="text-slate-800 text-xs">
           {{ child.amount }}g {{ child.productName || "Unbenannt" }}
           <span class="">:</span>
@@ -34,6 +34,7 @@
 
 <script lang="ts" setup>
 import gsap from "gsap";
+import { productsInCartData, sugarCounter } from "@/composables/useThree";
 
 const receiptList = ref<HTMLUListElement | null>(null);
 

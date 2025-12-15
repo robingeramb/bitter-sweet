@@ -1,5 +1,7 @@
 <template>
   <div>
+    <!-- NEU: Video-Ladebildschirm -->
+    <!-- <VideoLoader v-if="showVideoLoader" @video-finished="handleVideoFinish" /> -->
     <!-- Fullscreen Start Screen -->
     <div
       v-if="!gameOver && !clockStart"
@@ -13,40 +15,10 @@
               src="/images/Logo.png"
               alt=""
             />
-
-            <!---<h1
-              class="absolute top-2 right-2 blur-sm whitespace-nowrap text-8xl hdl mb-16 text-black opacity-20"
-            >
-              Bitter-Sweet
-            </h1>--->
           </div>
-
-          <p
-            class="bg-black bg-opacity-50 backdrop-blur-sm border-opacity-70 shadow-xl border-white border-[1px] p-10 rounded-2xl mb-8 text-white"
-          >
-            Your parents are coming to visit tonight. <br />You want to cook a
-            good pasta meal for 3 people and still need drinks and snacks.<br />
-            You're running late and only have 5 minutes to do the shopping.
-          </p>
-          <h1 class="text-4xl font-bold">{{ formattedTime }}</h1>
         </div>
 
         <Button @click="startGame" class="" :text="'Start'" />
-      </div>
-
-      <div
-        v-if="!clockStart && started"
-        class="flex w-full h-full absolute top-0 justify-center backdrop-blur-sm left-0 bg-black bg-opacity-70 flex-col gap-8 items-center"
-      >
-        <div
-          class="bg-orange-300 bg-opacity-100 h-4 backdrop-blur-sm w-80 relative rounded-full overflow-hidden"
-        >
-          <div
-            :style="{ width: (loadedItems / 130) * 100 + '%' }"
-            class="h-full bg-orange-500"
-          ></div>
-        </div>
-        <p>{{ loadingMessage }}</p>
       </div>
     </div>
     <!-- Fullscreen Game Over Screen -->
@@ -77,7 +49,13 @@
       {{ formattedTime }}
     </div>
     <div
-      v-if="started && !gameOver && !endScreen && clockStart"
+      v-if="
+        started &&
+        !gameOver &&
+        !endScreen &&
+        clockStart &&
+        variablesStore.playerInMotion
+      "
       class="fixed flex-col flex top-5 min-w-24 right-5 background-element text-xl text-center font-medium px-4 py-4 rounded-sm"
     >
       <h3 class="handwritten text-black m-3">Shopping List</h3>
@@ -104,7 +82,7 @@
             </svg>
           </div>
         </div>
-        <div class="handwritten text-sm text-black">Noodles</div>
+        <div class="handwritten text-sm text-black">Pasta</div>
       </div>
       <div class="flex gap-3 items-center">
         <div class="checkbox mb-1 ml-3">
@@ -188,7 +166,26 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
+import Button from "./Button.vue";
+import {
+  loadingProgress,
+  clockStart,
+  endScreen,
+  noodelsCheck,
+  sauceCheck,
+  drinksCheck,
+  snacksCheck,
+  drinksCount,
+} from "@/composables/useThree";
+import { useVariablesStore } from "~/stores/store";
+
+const variablesStore = useVariablesStore();
+
+// NEU: Zustände für den Lade-Flow
+const sceneLoaded = ref(false);
+const videoFinishedOnce = ref(false);
+
 const emit = defineEmits(["startSetup"]);
 const time = ref(300); // 5 minutes in seconds
 const started = ref(false);
@@ -199,36 +196,45 @@ let interval = null;
 const startGame = () => {
   emit("startSetup");
   started.value = true;
-  if (
-    loadingProgress.value >= 100 &&
-    loadedItems.value > 128 &&
-    clockStart.value == false
-  ) {
-    setTimeout(() => {
-      startCountdown();
-    }, 200);
+  // The video loader will now be shown and will emit 'video-finished' when it's done.
+  handleVideoFinish();
+};
+
+// NEU: Logik, um den Ladebildschirm zu beenden
+const showVideoLoader = computed(() => started.value && !clockStart.value);
+
+const handleVideoFinish = () => {
+  videoFinishedOnce.value = true;
+  // Ruft tryFinishLoading auf, sobald die Videosequenz beendet ist.
+  tryFinishLoading();
+};
+
+const tryFinishLoading = () => {
+  if (sceneLoaded.value && videoFinishedOnce.value) {
+    clockStart.value = true;
+    startCountdown();
   }
 };
 
-watch(
-  () => loadingProgress.value,
-  (newValue) => {
-    if (
-      newValue >= 100 &&
-      started.value &&
-      loadedItems.value > 128 &&
-      clockStart.value == false
-    ) {
-      setTimeout(() => {
-        startCountdown();
-      }, 200);
-      // Funktion aufrufen
-    }
+watch(videoFinishedOnce, (finished) => {
+  if (finished) {
+    tryFinishLoading();
   }
-);
+});
+
+watch(loadingProgress, (progress) => {
+  if (progress >= 100 && !sceneLoaded.value) {
+    sceneLoaded.value = true;
+    tryFinishLoading();
+  }
+});
 
 const startCountdown = () => {
-  clockStart.value = true;
+  // Verhindern, dass das Intervall mehrfach gestartet wird.
+  if (interval) {
+    return;
+  }
+
   interval = setInterval(() => {
     if (time.value > 0) {
       time.value -= 1;

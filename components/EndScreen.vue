@@ -115,7 +115,7 @@ const thirdText = ref();
 const consequences = ref();
 const effectsStore = useSugarEffects();
 const effectList = effectsStore.effects;
-const productCount = productsInCart.length;
+const productCount = productsInCartData.length;
 let showTitel = true;
 let showMainTitel = true;
 let formattedText: string;
@@ -358,7 +358,6 @@ function scrollToReceipt() {
 function scrollToChild() {
   const child = receipt.value?.$el || receipt.value; // Zugriff auf das DOM-Element der Child-Komponente
   if (!child) {
-    console.error("Receipt-Referenz ist undefined.");
     return;
   }
 

@@ -1,10 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+import glsl from "vite-plugin-glsl";
+
 export default defineNuxtConfig({
   modules: ["@pinia/nuxt", "@tresjs/nuxt"],
   vite: {
     build: {
       target: "esnext", // Für WASM-Unterstützung
     },
+    plugins: [glsl()],
   },
   link: [
     {

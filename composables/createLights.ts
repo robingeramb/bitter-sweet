@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { RectAreaLightHelper } from "three/examples/jsm/helpers/RectAreaLightHelper.js";
+import { markRaw } from "vue";
 
 export const spotLight = new THREE.SpotLight(0xffffff, 4, 1.4);
 
@@ -31,6 +32,9 @@ export async function createLights(
     rectAreaLight.rotateX(-Math.PI / 2); // Ensure light points at the center
 
     const rectLightHelper = new RectAreaLightHelper(rectAreaLight); // Helper to visualize the light
+    // NEU: Verhindern, dass Vue den Helper reaktiv macht.
+    markRaw(rectLightHelper);
+
     rectAreaLight.add(rectLightHelper);
     const spotLight = new THREE.PointLight(0xfcfbed, 16, 20);
     spotLight.position.set(0, 0.049, 0);
@@ -42,6 +46,10 @@ export async function createLights(
     light.position.set(0, -0.04, 0);
     light.scale.set(2, 2, 2);
 
+    // NEU: Verhindern, dass Vue die Lichter und ihre Unterobjekte reaktiv macht.
+    markRaw(lightGroup);
+    markRaw(spotLight);
+
     lightGroup.add(spotLight);
     const stencil2 = stencil.clone();
     stencil2.position.set(0, 0.0999, 0);
@@ -51,6 +59,9 @@ export async function createLights(
     //lightGroup.add(rectAreaLight);
     lights.add(lightGroup);
   }
+  // NEU: Die gesamte Gruppe als nicht-reaktiv markieren, bevor sie zurückgegeben wird.
+  markRaw(lights);
+
   scene.add(spotLight);
   return lights;
 }
