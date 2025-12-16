@@ -19,12 +19,17 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 
+// NEU: Props für die Videos
+const props = defineProps<{
+  videos: string[];
+}>();
+
 const emit = defineEmits(["video-finished"]);
 
 const videoPlayerA = ref<HTMLVideoElement | null>(null);
 const videoPlayerB = ref<HTMLVideoElement | null>(null);
 
-const videos = ["/videos/Szene1.webm", "/videos/Szene2.webm", "/videos/Szene3.webm"];
+// const videos = ["/videos/Szene1.webm", "/videos/Szene2.webm", "/videos/Szene3.webm"]; // Entfernt, da jetzt über Props
 const currentVideoIndex = ref(0);
 const isPlayerAActive = ref(true);
 
@@ -36,7 +41,7 @@ const activePlayer = computed(() => isPlayerAActive.value ? videoPlayerA.value :
 onMounted(() => {
   // Starte das erste Video
   if (videoPlayerA.value) {
-    videoPlayerA.value.src = videos[0];
+    videoPlayerA.value.src = props.videos[0];
     videoPlayerA.value.load();
     videoPlayerA.value.play().catch((e: any) => console.error("Autoplay für Video 1 fehlgeschlagen:", e));
     // Lade das zweite Video sofort vor
@@ -46,10 +51,10 @@ onMounted(() => {
 
 const preloadNextVideo = () => {
   const nextIndex = currentVideoIndex.value + 1;
-  if (nextIndex < videos.length) {
+  if (nextIndex < props.videos.length) {
     const inactivePlayer = isPlayerAActive.value ? videoPlayerB.value : videoPlayerA.value;
     if (inactivePlayer) {
-      inactivePlayer.src = videos[nextIndex];
+      inactivePlayer.src = props.videos[nextIndex];
       inactivePlayer.load();
     }
   }
@@ -64,7 +69,7 @@ const onVideoEnded = async () => {
 
   currentVideoIndex.value++;
 
-  if (currentVideoIndex.value < videos.length) {
+  if (currentVideoIndex.value < props.videos.length) {
     isPlayerAActive.value = !isPlayerAActive.value;
     const newActivePlayer = isPlayerAActive.value ? videoPlayerA.value : videoPlayerB.value;
     if (newActivePlayer) {

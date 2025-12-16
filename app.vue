@@ -4,11 +4,13 @@
     v-if="!endScreen && faceDisplayRef && variablesStore.showReceiptDone"
     :faceDisplayRef="faceDisplayRef"
     @fadeRequested="fadeInFace"
-  />
+  />  
+
+
   <SugarConsequences
     :sugarValue="90"
+    :releaseWarning="true"  
     v-if="!endScreen && faceDisplayRef && variablesStore.showReceiptDone"
-    :releaseWarning="true"
     :mouthOpen="variablesStore.mouthOpen"
     @sequence-completed="handleSequenceComplete"
   />
@@ -36,6 +38,7 @@
     :scrollVal="scrollValue"
     :faceDisplay="faceDisplayRef"
   />
+  
 </template>
 
 <script setup lang="ts">

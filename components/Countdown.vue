@@ -1,24 +1,28 @@
 <template>
   <div>
     <!-- NEU: Video-Ladebildschirm -->
-    <!-- <VideoLoader v-if="showVideoLoader" @video-finished="handleVideoFinish" /> -->
+    <!-- <VideoLoader v-if="showVideoLoader" :videos="preloadedVideoUrls" @video-finished="handleVideoFinish" /> -->
     <!-- Fullscreen Start Screen -->
     <div
       v-if="!gameOver && !clockStart"
-      class="flex background flex-col items-center justify-center h-screen bg-neutral-950 text-white"
+      class="flex background flex-col items-center justify-center h-screen bg-neutral-950 text-white relative"
     >
-      <div v-if="!started" class="flex flex-col items-center">
-        <div class="text-center flex items-center flex-col mb-16">
+      <!-- Vignettes -->
+      <div class="blur-vignette"></div>
+      <div class="vignette"></div>
+
+      <div v-if="!started" class="flex flex-col items-center z-10">
+        <div class="text-center flex items-center flex-col">
           <div class="relative">
             <img
               class="w-[40rem] translate-x-3"
-              src="/images/Logo.png"
+              src="/images/Logo_BitterSweet.png"
               alt=""
             />
           </div>
         </div>
 
-        <Button @click="startGame" class="" :text="'Start'" />
+        <Button @click="startGame" class="" :text="'Start'" :loading="isLoadingVideos" />
       </div>
     </div>
     <!-- Fullscreen Game Over Screen -->
@@ -168,6 +172,7 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import Button from "./Button.vue";
+import VideoLoader from "./VideoLoader.vue";
 import {
   loadingProgress,
   clockStart,
@@ -186,6 +191,11 @@ const variablesStore = useVariablesStore();
 const sceneLoaded = ref(false);
 const videoFinishedOnce = ref(false);
 
+// NEU: Variablen für das Video-Preloading
+const isLoadingVideos = ref(false);
+const videoPaths = ["/videos/Szene1.webm", "/videos/Szene2.webm", "/videos/Szene3.webm"];
+const preloadedVideoUrls = ref([]);
+
 const emit = defineEmits(["startSetup"]);
 const time = ref(300); // 5 minutes in seconds
 const started = ref(false);
@@ -193,11 +203,32 @@ const started = ref(false);
 const gameOver = ref(false);
 let interval = null;
 
-const startGame = () => {
+const startGame = async () => {
+  // 1. Lade-Status aktivieren (Button zeigt Spinner)
+  isLoadingVideos.value = true;
+
+  try {
+    // 2. Alle Videos vorladen
+    const promises = videoPaths.map(async (path) => {
+      const response = await fetch(path);
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
+    });
+    
+    preloadedVideoUrls.value = await Promise.all(promises);
+  } catch (error) {
+    console.error("Fehler beim Laden der Videos:", error);
+    // Fallback: Falls das Laden fehlschlägt, nutzen wir die normalen Pfade
+    preloadedVideoUrls.value = videoPaths;
+  } finally {
+    isLoadingVideos.value = false;
+  }
+
+  // 3. Spiel starten (VideoLoader wird angezeigt)
   emit("startSetup");
   started.value = true;
   // The video loader will now be shown and will emit 'video-finished' when it's done.
-  handleVideoFinish();
+  handleVideoFinish(); // KORREKTUR: Entfernt, damit das Video nicht sofort übersprungen wird.
 };
 
 // NEU: Logik, um den Ladebildschirm zu beenden
@@ -227,7 +258,7 @@ watch(loadingProgress, (progress) => {
     sceneLoaded.value = true;
     tryFinishLoading();
   }
-});
+}, { immediate: true }); // KORREKTUR: immediate: true stellt sicher, dass wir den Status auch erfassen, wenn das Laden schon fertig ist.
 
 const startCountdown = () => {
   // Verhindern, dass das Intervall mehrfach gestartet wird.
@@ -292,5 +323,28 @@ body {
 .background {
   background-image: url("/models/textures/ceramic_tiles/baseColor.webp");
   background-size: 40%;
+}
+
+.vignette {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.8) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.blur-vignette {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backdrop-filter: blur(4px);
+  mask-image: radial-gradient(ellipse at center, transparent 30%, black 80%);
+  pointer-events: none;
+  z-index: 1;
 }
 </style>
