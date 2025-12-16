@@ -20,6 +20,6 @@ export const AR_CONFIG = {
   LOWER_JAW_INITIAL_OFFSET_DEG: -27,
   SCALE: 1.6,
 };
-export const ROTTEN_BASECOLOR_URL = "/models/textures/rottenTeeth_color.png";
+export const ROTTEN_BASECOLOR_URL = "/models/textures/rottenTeeth_color.webp";
 // Pfad zum 3D-Modell
 export const MODEL_URL = "/models/dental5.glb";

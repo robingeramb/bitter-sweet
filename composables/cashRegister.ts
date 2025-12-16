@@ -1,6 +1,11 @@
 import * as THREE from "three";
 import { useVariablesStore } from "~/stores/store";
-import { camera, taskDone, endScreen } from "@/composables/useThree";
+import {
+  camera,
+  taskDone,
+  endScreen,
+  unloadObjectsByDistance,
+} from "@/composables/useThree";
 // Wichtig: GSAP für die Animation importieren
 import { gsap } from "gsap";
 
@@ -17,9 +22,15 @@ export let cashCounter: any;
  * @param selectedCheckout
  */
 export function clickCheckout(event, selectedCheckout) {
+  if (!selectedCheckout) {
+    console.log("No checkout selected");
+    return;
+  }
   const variablesStore = useVariablesStore();
+
   mouse.x = 0;
   mouse.y = 0;
+  console.log(selectedCheckout);
   cashCounter = selectedCheckout;
   raycaster.setFromCamera(mouse, camera);
   let intersects = raycaster.intersectObjects([selectedCheckout], true);
@@ -33,6 +44,8 @@ export function clickCheckout(event, selectedCheckout) {
       focusObject = clickedObject;
     }
     variablesStore.updatePlayerMotion(false);
+    variablesStore.updateCashoutStart(true);
+
     const objectPos = new THREE.Vector3();
     focusObject.getWorldPosition(objectPos);
 
@@ -52,6 +65,7 @@ export function clickCheckout(event, selectedCheckout) {
       },
       onComplete: () => {
         camera.lookAt(objectPos);
+        unloadObjectsByDistance(5);
         if (taskDone.value == true) {
           endScreen.value = true;
         }

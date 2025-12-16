@@ -1,5 +1,4 @@
 <template>
-  <!---->
   <CashRegisterOverlay
     v-if="!endScreen && faceDisplayRef && variablesStore.showReceiptDone"
     :faceDisplayRef="faceDisplayRef"
@@ -7,14 +6,15 @@
   />
   <SugarConsequences
     :sugarValue="90"
-    v-if="!endScreen && faceDisplayRef && variablesStore.showReceiptDone"
+    v-if="!endScreen && faceDisplayRef && variablesStore.cashoutFinished"
     :releaseWarning="true"
     :mouthOpen="variablesStore.mouthOpen"
     @sequence-completed="handleSequenceComplete"
   />
-  <div class="szene">
+  <!---->
+  <div class="szene" v-if="!endScreen && variablesStore.cashoutStart">
     <div class="wrapper">
-      <div class="faceConsequences" ref="faceDisplayRef">
+      <div class="faceConsequences pointer-events-none" ref="faceDisplayRef">
         <ConsequencesFace ref="consequencesFace" />
       </div>
     </div>
@@ -29,7 +29,7 @@
   />
 
   <Box
-    v-if="!endScreen && faceDisplayRef"
+    v-if="!endScreen"
     ref="threeJS"
     class="-z-10"
     :mousePos="mousePosition"
@@ -71,7 +71,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 function fadeInFace() {
   gsap.to(".wrapper", {
-    rotateY: -180, // rotiert das Video um den Ursprung
+    rotateY: 180, // rotiert das Video um den Ursprung
     duration: 1.8,
     ease: "power2.inOut",
   });
@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
 
 body {
   width: 100vw;
-  height: 100vh;
+
   overflow: hidden;
 }
 

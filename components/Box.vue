@@ -174,6 +174,8 @@ function setupFloor(): void {
   _floor = new THREE.Mesh(floorGeometry, ceramicMaterial); // KORREKTUR: Visuellen Boden an physikalischen Boden anpassen
   _floor.position.set(0, -1.55, -floorLength / 2 + 4); // KORREKTUR: Position an neue, korrekte Bodenhöhe anpassen.
   _floor.receiveShadow = true;
+  _floor.name = "floor";
+
   scene.add(_floor);
 }
 
@@ -247,6 +249,7 @@ function setupWalls(): void {
   const wall1 = new THREE.Mesh(sideGeometry, wallMaterial);
   wall1.position.set(-1.91, wallHeight / 2 - 1.55, -6);
   wall1.receiveShadow = true;
+  wall1.name = "wall";
 
   // Rechte Wand
   const wall2 = wall1.clone();
@@ -384,9 +387,7 @@ async function setupCashRegister(): Promise<void> {
   const displayMaterial = new THREE.MeshBasicMaterial({
     map: null, // später von Controller ersetzt
   });
-  cashRegister = (await loadModel(
-    "self_checkout_with_printer.glb"
-  )) as THREE.Mesh;
+  cashRegister = (await loadModel("newcounterglb-opt.glb")) as THREE.Mesh;
   if (cashRegister) {
     cashRegister.scale.set(0.8, 0.8, 0.8); // KORREKTUR: Skalierung beibehalten
     cashRegister.position.set(0.8, -0.9, -16); // KORREKTUR: Kasse-Position an neuen Boden anpassen (Base bei Y=0)
@@ -394,6 +395,7 @@ async function setupCashRegister(): Promise<void> {
     let paperPosition: THREE.Mesh | null = null;
 
     cashRegister.traverse((child) => {
+      console.log(child.name);
       child.castShadow = true;
       if (child.name === "Display") {
         child.material = displayMaterial;
@@ -436,27 +438,32 @@ function renderLoop(): void {
   const deltaTime = clock.getDelta();
 
   // NEU: DEBUG: Y-Positionen am Anfang des Render-Loops
-  if (playerBody) {
+  if (playerBody && !variablesStore.cashoutStart) {
     debugYPositions.push(playerBody.position.y);
     if (debugYPositions.length > MAX_DEBUG_Y_POSITIONS) {
       debugYPositions.shift(); // Ältesten Wert entfernen
     }
   }
 
-  animateDisplay();
+  if (!variablesStore.showReceiptDone) {
+    animateDisplay();
+  }
 
   const physicObjects = getPhysicObjects();
   // --- VORBEREITUNG FÜR PHYSIK-UPDATE ---
   // Synchronisiere alle physischen Objekte (Produkte im Korb) mit ihren visuellen Meshes
   // WICHTIG: Dies muss VOR world.step() geschehen, damit Kollisions-Events auf 'threemesh' zugreifen können.
-  for (const [mesh, body] of physicObjects.entries()) {
-    // Verknüpfe den Physik-Körper mit seinem Mesh, damit die Kollisionslogik darauf zugreifen kann.
-    (body as any).threemesh = mesh;
-  }
+  if (!variablesStore.cashoutStart) {
+    for (const [mesh, body] of physicObjects.entries()) {
+      // Verknüpfe den Physik-Körper mit seinem Mesh, damit die Kollisionslogik darauf zugreifen kann.
+      (body as any).threemesh = mesh;
+    }
 
-  // --- PHYSIK-UPDATE ---
-  // Die Physik-Welt wird in jedem Frame aktualisiert.
-  world.step(fixedTimeStep, deltaTime, 10);
+    // --- PHYSIK-UPDATE ---
+    // Die Physik-Welt wird in jedem Frame aktualisiert.
+
+    world.step(fixedTimeStep, deltaTime, 10);
+  }
 
   // --- KORREKTUR: Sicheres Entfernen von Körpern NACH dem Physik-Update ---
   // Iteriere durch die vorgemerkten Körper und entferne sie sicher aus der Welt.
@@ -507,7 +514,7 @@ function renderLoop(): void {
   }
 
   // --- EINKAUFSWAGEN-UPDATE ---
-  if (shoppingCart && shoppingCartBody) {
+  if (shoppingCart && shoppingCartBody && !variablesStore.cashoutStart) {
     // --- KORREKTUR: Sanftere Verfolgung durch Feder-ähnliche Kräfte statt direkter Geschwindigkeitssteuerung ---
     const isMoving =
       fpControls?.moveState.forward ||
@@ -568,13 +575,15 @@ function renderLoop(): void {
 
   // --- SYNCHRONISATION NACH PHYSIK-UPDATE ---
   // Aktualisiere die visuellen Positionen der Objekte basierend auf dem Ergebnis des Physik-Updates.
-  for (const [mesh, body] of physicObjects.entries()) {
-    mesh.position.copy(body.position as unknown as THREE.Vector3);
-    mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion);
+  if (!variablesStore.cashoutStart) {
+    for (const [mesh, body] of physicObjects.entries()) {
+      mesh.position.copy(body.position as unknown as THREE.Vector3);
+      mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion);
+    }
   }
 
   // NEU: Permanente Hover-Erkennung über das Fadenkreuz in der Bildschirmmitte
-  if (!productView.value) {
+  if (!productView.value && !variablesStore.cashoutStart) {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     const intersects = raycaster.intersectObjects(shelves, true); // KORREKTUR: Nur die Regale auf Kollision prüfen.
     if (intersects.length > 0 && intersects[0].distance <= 3.0) {
@@ -588,8 +597,9 @@ function renderLoop(): void {
       hoveredProduct.value = undefined;
     }
   }
-
-  _renderLoopId = requestAnimationFrame(renderLoop);
+  if (!variablesStore.cashoutFinished) {
+    _renderLoopId = requestAnimationFrame(renderLoop);
+  }
 }
 
 function resetPositions() {

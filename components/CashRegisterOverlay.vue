@@ -11,6 +11,7 @@
 <script lang="ts" setup>
 import { camera, taskDone, endScreen } from "@/composables/useThree";
 import gsap from "gsap";
+import { useVariablesStore } from "@/stores/store";
 
 interface Props {
   faceDisplayRef: any;
@@ -21,6 +22,7 @@ const props = defineProps<Props>();
 
 function cameraTurn() {
   const targetY = 0.09776897845147936;
+  let variablesStore = useVariablesStore();
 
   // 1. WICHTIG: Die Reihenfolge der Achsen ändern.
   // 'YXZ' sorgt dafür, dass die Y-Drehung (Links/Rechts) unabhängig von der Neigung (X) ist.
@@ -28,7 +30,7 @@ function cameraTurn() {
   camera.rotation.reorder("YXZ");
 
   // 2. Ziel berechnen: Aktueller Winkel minus 180 Grad (Math.PI) für Uhrzeigersinn
-  const targetRotationY = camera.rotation.y - Math.PI;
+  const targetRotationY = camera.rotation.y + Math.PI;
 
   // GSAP Animation
   gsap.to(camera.rotation, {
@@ -46,6 +48,9 @@ function cameraTurn() {
     ease: "power2.inOut",
     onComplete: () => {
       if (taskDone.value) endScreen.value = true;
+      setTimeout(() => {
+        variablesStore.updateCashoutFinished(true);
+      }, 900);
     },
   });
 }

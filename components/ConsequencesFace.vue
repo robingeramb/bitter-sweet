@@ -34,6 +34,10 @@ const faceDisplayComponent = ref<InstanceType<
 
 const faceDisplay = ref<HTMLElement | null>(null);
 
+setTimeout(() => {
+  faceDisplayComponent.value?.freezeFrame();
+}, 1000);
+
 async function startZoom(i: number, t: number) {
   // 1. Zuerst das Einfrieren und die Mundposition abrufen
   const mouthCenter = await faceDisplayComponent.value?.freezeFrame();

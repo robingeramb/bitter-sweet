@@ -1,7 +1,8 @@
 <template>
   <div>
-    <!-- NEU: Video-Ladebildschirm -->
-    <!-- <VideoLoader v-if="showVideoLoader" @video-finished="handleVideoFinish" /> -->
+    <!-- NEU: Video-Ladebildschirm
+    <VideoLoader v-if="showVideoLoader" @video-finished="handleVideoFinish" />
+ -->
     <!-- Fullscreen Start Screen -->
     <div
       v-if="!gameOver && !clockStart"
@@ -10,11 +11,7 @@
       <div v-if="!started" class="flex flex-col items-center">
         <div class="text-center flex items-center flex-col mb-16">
           <div class="relative">
-            <img
-              class="w-[40rem] translate-x-3"
-              src="/images/Logo.png"
-              alt=""
-            />
+            <img class="w-[40rem] translate-x-3" src="/images/Logo.png" />
           </div>
         </div>
 

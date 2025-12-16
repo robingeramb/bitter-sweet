@@ -48,7 +48,7 @@ interface Props {
 const props = defineProps<Props>();
 
 /* ---------------- KONFIGURATION ---------------- */
-const STEPS_DELAY = 500;
+const STEPS_DELAY = 2000;
 const REMINDER_DELAY = 3000;
 const FADE_OUT_DURATION = 600;
 const EMIT_DELAY = 1000; // **NEU: 1 Sekunde Verzögerung für den Emit-Aufruf**

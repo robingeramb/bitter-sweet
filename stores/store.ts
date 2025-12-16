@@ -20,6 +20,8 @@ export const useVariablesStore = defineStore("variables", () => {
   const showReceiptDone = ref(false);
   const cursorFree = ref(false);
   const mouthOpen = ref(false);
+  const cashoutStart = ref(false);
+  const cashoutFinished = ref(false);
 
   // 2. Die Aktion/Mutation (Action)
   function updatePlayerMotion(newValue: boolean) {
@@ -28,6 +30,14 @@ export const useVariablesStore = defineStore("variables", () => {
 
   function updateMouthOpen(newValue: boolean) {
     mouthOpen.value = newValue; // Sicherstellen, dass es eine Zahl ist
+  }
+
+  function updateCashoutStart(newValue: boolean) {
+    cashoutStart.value = newValue; // Sicherstellen, dass es eine Zahl ist
+  }
+
+  function updateCashoutFinished(newValue: boolean) {
+    cashoutFinished.value = newValue; // Sicherstellen, dass es eine Zahl ist
   }
 
   function updateShowReceiptDone(newValue: boolean) {
@@ -46,5 +56,9 @@ export const useVariablesStore = defineStore("variables", () => {
     updateMouthOpen,
     mouthOpen,
     updateShowReceiptDone,
+    cashoutStart,
+    updateCashoutStart,
+    cashoutFinished,
+    updateCashoutFinished,
   };
 });

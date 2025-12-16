@@ -370,6 +370,54 @@ export function useThree() {
   };
 }
 
+export function unloadObjectsByDistance(maxDistance: number) {
+  if (!scene || !camera) return;
+
+  const cameraPos = camera.position;
+  const toRemove: THREE.Object3D[] = [];
+  camera.near = 0.1;
+  camera.far = maxDistance; // kleiner Puffer
+  camera.updateProjectionMatrix();
+
+  scene.traverse((object) => {
+    if (!object.isMesh) return;
+    if (!object.parent) return;
+
+    const worldPos = new THREE.Vector3();
+    object.getWorldPosition(worldPos);
+
+    const distance = cameraPos.distanceTo(worldPos);
+
+    if (
+      distance > maxDistance &&
+      object.name !== "floor" &&
+      object.name !== "wall"
+    ) {
+      console.log(
+        `Entferne Objekt: ${
+          object.name || "(ohne Namen)"
+        } in Entfernung ${distance}`
+      );
+      toRemove.push(object);
+    }
+  });
+
+  // ⬇️ erst NACH traverse entfernen
+  toRemove.forEach((object) => {
+    object.parent?.remove(object);
+
+    if (object.geometry) object.geometry.dispose();
+
+    if (object.material) {
+      if (Array.isArray(object.material)) {
+        object.material.forEach((m) => m.dispose());
+      } else {
+        object.material.dispose();
+      }
+    }
+  });
+}
+
 // NEU: Hilfsfunktion zum Erstellen eines Debug-Meshes für einen Cannon.js Body
 export function createCannonDebugger(
   scene: THREE.Scene,

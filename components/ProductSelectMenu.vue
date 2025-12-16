@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex top-0 left-0 w-full h-full text-white fixed flex-col text-center items-center justify-center gap-12"
+    class="flex z-50 top-0 left-0 w-full h-full text-white fixed flex-col text-center items-center justify-center gap-12"
     :class="{ 'pointer-events-none': !productView }"
   >
     <!-- KORREKTUR: Die Vignette wird jetzt wieder mit einer Vue-Transition gesteuert, die die Deckkraft animiert. -->
@@ -47,7 +47,10 @@ import {
   hoveredMouseX,
   hoveredMouseY,
 } from "@/composables/useThree";
-import { selectedProductToShelf, selectedProductToCart } from "@/composables/productSelection";
+import {
+  selectedProductToShelf,
+  selectedProductToCart,
+} from "@/composables/productSelection";
 import Button from "./Button.vue";
 
 const showHandAnimation = ref(true);
@@ -57,22 +60,26 @@ const isInitialAnimationDone = ref(false);
 let initialAnimationTimeout: ReturnType<typeof setTimeout> | null = null;
 let canTriggerHoverAnimation = false;
 
-watch(productView, (newVal: boolean) => {
-  if (newVal && !hasProductBeenRotated.value) {
-    showHandAnimation.value = true;
-    iterationCount.value = 2;
-    canTriggerHoverAnimation = false;
+watch(
+  productView,
+  (newVal: boolean) => {
+    if (newVal && !hasProductBeenRotated.value) {
+      showHandAnimation.value = true;
+      iterationCount.value = 2;
+      canTriggerHoverAnimation = false;
 
-    if (initialAnimationTimeout) clearTimeout(initialAnimationTimeout);
-    initialAnimationTimeout = setTimeout(() => {
-      canTriggerHoverAnimation = true;
-    }, 3000); // 2 * 1.5s
-  } else {
-    showHandAnimation.value = false;
-    canTriggerHoverAnimation = false;
-    if (initialAnimationTimeout) clearTimeout(initialAnimationTimeout);
-  }
-}, { immediate: true });
+      if (initialAnimationTimeout) clearTimeout(initialAnimationTimeout);
+      initialAnimationTimeout = setTimeout(() => {
+        canTriggerHoverAnimation = true;
+      }, 3000); // 2 * 1.5s
+    } else {
+      showHandAnimation.value = false;
+      canTriggerHoverAnimation = false;
+      if (initialAnimationTimeout) clearTimeout(initialAnimationTimeout);
+    }
+  },
+  { immediate: true }
+);
 
 watch(isHoveringSelectedProduct, (isHovering: boolean) => {
   if (isHovering && canTriggerHoverAnimation && !hasProductBeenRotated.value) {
@@ -132,7 +139,8 @@ watch(isHoveringSelectedProduct, (isHovering: boolean) => {
     transform: translate(-50%, -50%) translateX(20px) scale(1);
     opacity: 1;
   }
-  60% { /* 1.2s - Endpunkt der sichtbaren Animation */
+  60% {
+    /* 1.2s - Endpunkt der sichtbaren Animation */
     /* Am Endpunkt ist das Icon vollständig verschwunden */
     transform: translate(-50%, -50%) translateX(35px) scale(1);
     opacity: 0;
