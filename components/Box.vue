@@ -707,7 +707,7 @@ onMounted(() => {
     // Er soll NUR mit dem Boden/Regalen kollidieren.
     playerBody.collisionFilterGroup = COLLISION_GROUPS.PLAYER;
     // KORREKTUR: Der Spieler soll nur noch mit dem Boden und den Regalen kollidieren, nicht mehr mit dem Einkaufswagen.
-    playerBody.collisionFilterMask = COLLISION_GROUPS.GROUND;
+    playerBody.collisionFilterMask = COLLISION_GROUPS.GROUND | COLLISION_GROUPS.SHELF;
 
     // Füge die Formen zum Körper hinzu
     playerBody.addShape(playerShape, new CANNON.Vec3(0, 0, 0)); // Box zentriert

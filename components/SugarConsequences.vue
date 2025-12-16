@@ -1,17 +1,12 @@
 <template>
   <div class="center-container z-50 fixed pointer-events-none">
-    <transition name="fade" mode="out-in">
+    <transition name="fade" mode="out-in" appear>
       <div :key="currentStep" v-if="stage === 'intro'">
-        <h1 v-if="currentStep === 0">{{ firstText }}</h1>
-        <h1 v-else-if="currentStep === 1">Sounds alarming, right?</h1>
-        <h1 v-else-if="currentStep === 2">Well, it is.</h1>
-        <h1 v-else-if="currentStep === 3">
-          Open your mouth to see what already happened to your body...
-        </h1>
+        <h1>Open your mouth and face what sugar’s done.</h1>
       </div>
 
       <h1 v-else-if="setBack" :key="'warning'">
-        We are not done yet. Please keep your mouth open.
+        Open your mouth to see the consequences inside.
       </h1>
 
       <h1 v-else-if="stage === 'waiting' && showReminder" :key="'remind'">
@@ -48,10 +43,11 @@ interface Props {
 const props = defineProps<Props>();
 
 /* ---------------- KONFIGURATION ---------------- */
-const STEPS_DELAY = 2000;
-const REMINDER_DELAY = 3000;
+const STEPS_DELAY = 5000;
+const INTRO_DURATION = 3000;
+const WAITING_TIMEOUT = 5000;
+const MOUTH_HOLD_DURATION = 1000;
 const FADE_OUT_DURATION = 600;
-const EMIT_DELAY = 1000; // **NEU: 1 Sekunde Verzögerung für den Emit-Aufruf**
 
 const SUGAR_LEVELS = [
   {
@@ -92,10 +88,10 @@ const SUGAR_LEVELS = [
 ];
 
 /* ---------------- STATES ---------------- */
-const stage = ref<"intro" | "waiting" | "info" | "final" | "completed">(
-  "intro"
-);
-const currentStep = ref(0);
+const stage = ref<
+  "intro" | "waiting" | "info" | "final" | "completed" | "completed_check"
+>("intro");
+const currentStep = ref(3);
 const infoStep = ref(0);
 const progressIndex = ref(0);
 const showReminder = ref(false);
@@ -103,18 +99,13 @@ const setBack = ref(false);
 
 let mainTimer: ReturnType<typeof setTimeout> | null = null;
 let reminderTimer: ReturnType<typeof setTimeout> | null = null;
+let mouthHoldTimer: ReturnType<typeof setTimeout> | null = null;
 
 /* ---------------- COMPUTED ---------------- */
-const firstText = computed(
-  () =>
-    `So… you are ${Math.max(
-      0,
-      Math.round(props.sugarValue - 25)
-    )}g above the recommended daily limit.`
-);
 
 const currentDisplayText = computed(() => {
-  if (stage.value === "final") return "So, let’s see what else happens.";
+  if (stage.value === "final")
+    return "So, now we take a deep dive into your body to see the other consequences";
   const level = SUGAR_LEVELS.find((l) => props.sugarValue <= l.max);
   return level ? level.lines[infoStep.value] : "";
 });
@@ -124,23 +115,10 @@ const currentDisplayText = computed(() => {
 function stopAllTimers() {
   if (mainTimer) clearTimeout(mainTimer);
   if (reminderTimer) clearTimeout(reminderTimer);
+  if (mouthHoldTimer) clearTimeout(mouthHoldTimer);
   mainTimer = null;
   reminderTimer = null;
-}
-
-function startReminderTimer() {
-  stopReminderTimer();
-  reminderTimer = setTimeout(() => {
-    if (!props.mouthOpen && stage.value === "waiting") {
-      showReminder.value = true;
-    }
-  }, REMINDER_DELAY);
-}
-
-function stopReminderTimer() {
-  if (reminderTimer) clearTimeout(reminderTimer);
-  reminderTimer = null;
-  showReminder.value = false;
+  mouthHoldTimer = null;
 }
 
 /* ---------------- LOGIK ---------------- */
@@ -148,44 +126,22 @@ function stopReminderTimer() {
 // 1. Intro-Ablauf
 function runIntro() {
   stopAllTimers();
+  stage.value = "intro";
   mainTimer = setTimeout(() => {
-    if (currentStep.value < 3) {
-      currentStep.value++;
-      runIntro();
-    } else {
-      stage.value = "waiting";
-      if (props.mouthOpen) {
-        startInfoSequence();
-      } else {
-        startReminderTimer();
+    stage.value = "waiting";
+    // Start 5s timer for reminder
+    reminderTimer = setTimeout(() => {
+      if (stage.value === "waiting") {
+        showReminder.value = true;
       }
-    }
-  }, STEPS_DELAY);
+    }, WAITING_TIMEOUT);
+  }, INTRO_DURATION);
 }
 
 // 2. Info Sequenz - Jetzt mit Startpunkt-Logik
 function startInfoSequence(startIndex: number = 0) {
   stopAllTimers();
-
-  if (stage.value === "completed" && progressIndex.value === 3) {
-    return;
-  }
-
-  if (startIndex === 2) {
-    stage.value = "final";
-    progressIndex.value = 2;
-    infoStep.value = 0;
-
-    mainTimer = setTimeout(() => {
-      stage.value = "completed";
-      progressIndex.value = 3;
-      // **NEU: Event-Trigger 1 Sekunde nach Abschluss der Completed-Stage**
-      setTimeout(() => {
-        emit("sequenceCompleted");
-      }, EMIT_DELAY);
-    }, STEPS_DELAY);
-    return;
-  }
+  showReminder.value = false;
 
   // Setze Stage und infoStep entsprechend dem StartIndex
   stage.value = "info";
@@ -203,16 +159,8 @@ function startInfoSequence(startIndex: number = 0) {
         stage.value = "final";
 
         mainTimer = setTimeout(() => {
-          stage.value = "completed";
-          progressIndex.value = 3;
-          // Setze setBack nur setzen, wenn der Mund geschlossen ist
-          if (props.releaseWarning && !props.mouthOpen) {
-            setBack.value = true;
-          }
-          // **NEU: Event-Trigger 1 Sekunde nach Abschluss der Completed-Stage**
-          setTimeout(() => {
-            emit("sequenceCompleted");
-          }, EMIT_DELAY);
+          // Sequenz vorbei -> Check Mundstatus
+          checkCompletion();
         }, STEPS_DELAY);
       }, FADE_OUT_DURATION + 50);
     } else {
@@ -229,44 +177,44 @@ function startInfoSequence(startIndex: number = 0) {
   runStep(startIndex);
 }
 
+function checkCompletion() {
+  stage.value = "completed_check";
+  if (props.mouthOpen) {
+    emit("sequenceCompleted");
+  } else {
+    setBack.value = true;
+  }
+}
+
 /* ---------------- WATCHER ---------------- */
 
 watch(
   () => props.mouthOpen,
   (isOpen) => {
-    // 1. Wenn setBack aktiv ist und Mund öffnet -> Setze fort/Lösche Warnung
-    if (setBack.value && isOpen) {
-      setBack.value = false; // Warnung entfernen
-
-      // Wenn Sequenz abgeschlossen ist, nur Warnung löschen und nicht neustarten
-      if (progressIndex.value < 3) {
-        startInfoSequence(progressIndex.value);
-      } else {
-        stage.value = "completed";
-      }
-      return;
-    }
-
-    // 2. Wenn Info/Final/Completed läuft und Mund schließt -> Aktiviere setBack
-    if (
-      (stage.value === "info" ||
-        stage.value === "final" ||
-        stage.value === "completed") &&
-      !isOpen
-    ) {
-      if (props.releaseWarning) {
-        stopAllTimers();
-        setBack.value = true;
-      }
-      return;
-    }
-
-    // 3. Normaler Wartestatus (nur, wenn setBack nicht aktiv ist)
-    if (stage.value === "waiting" && !setBack.value) {
+    // 1. Waiting Phase: Mund muss 1 Sekunde offen bleiben
+    if (stage.value === "waiting") {
       if (isOpen) {
-        startInfoSequence();
+        if (!mouthHoldTimer) {
+          mouthHoldTimer = setTimeout(() => {
+            startInfoSequence();
+          }, MOUTH_HOLD_DURATION);
+        }
       } else {
-        startReminderTimer();
+        if (mouthHoldTimer) {
+          clearTimeout(mouthHoldTimer);
+          mouthHoldTimer = null;
+        }
+      }
+      return;
+    }
+
+    // 2. Completed Check Phase: Mund muss offen sein zum Beenden
+    if (stage.value === "completed_check") {
+      if (isOpen) {
+        setBack.value = false;
+        emit("sequenceCompleted");
+      } else {
+        setBack.value = true;
       }
     }
   }
@@ -282,7 +230,7 @@ watch(
 
       // Wenn wir uns im Wartestatus befinden, stoppen wir den Reminder, da die Warnung unnötig ist
       if (stage.value === "waiting") {
-        stopReminderTimer();
+        if (reminderTimer) clearTimeout(reminderTimer);
         showReminder.value = false;
       }
     }
@@ -302,33 +250,47 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  padding-bottom: 10vh;
   height: 100vh;
   width: 100vw;
   text-align: center;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0) 50%
+  );
 }
 
 h1 {
-  font-size: 50px;
+  font-size: 32px;
   max-width: 800px;
   color: white;
   line-height: 1.2;
 }
 h2 {
-  font-size: 40px;
+  font-size: 24px;
   max-width: 800px;
   color: white;
   line-height: 1.2;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.6s ease, transform 0.6s ease;
+.fade-enter-active {
+  transition: opacity 1s ease-out, transform 1s cubic-bezier(0.19, 1, 0.22, 1),
+    filter 1s ease-out;
 }
 
-.fade-enter-from,
+.fade-leave-active {
+  transition: opacity 1s ease;
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: scale(2.5);
+  filter: blur(10px);
+}
+
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(10px);
 }
 </style>

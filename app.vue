@@ -4,6 +4,7 @@
     :faceDisplayRef="faceDisplayRef"
     @fadeRequested="fadeInFace"
   />
+
   <SugarConsequences
     :sugarValue="90"
     v-if="!endScreen && faceDisplayRef && variablesStore.cashoutFinished"
