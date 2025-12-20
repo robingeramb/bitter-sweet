@@ -19,6 +19,9 @@
 import { onMounted } from "vue";
 import { useMediaPipeLoader } from "@/composables/useMediaPipeLoader";
 import gsap from "gsap";
+import { useVariablesStore } from "@/stores/store";
+
+const variablesStore = useVariablesStore();
 
 const { loadMediaPipeScripts, isMediaPipeLoaded } = useMediaPipeLoader();
 const webcamScene = ref<InstanceType<
@@ -60,6 +63,10 @@ async function startZoom(i: number, t: number) {
       x: finalX,
       y: finalY,
       ease: "power2.inOut",
+
+      onComplete: () => {
+        variablesStore.updateShowInnerBody(true);
+      },
     });
 
     // Aufruf der Child-Funktion in WebcamScene

@@ -11,11 +11,21 @@ let receiptData = {
 export let receipt: THREE.Mesh;
 let l = 0;
 
+// NEU: Sound für den Kassenbon
+const receiptSound = typeof Audio !== "undefined" ? new Audio("/sound/receipt.mp3") : null;
+if (receiptSound) receiptSound.volume = 0.5;
+
 /**
  * Animiert den Receipt: fährt nach oben und rollt sich leicht hinten
  */
 export function animateReceipt() {
   if (!receipt || !receipt.geometry) return;
+
+  // NEU: Sound abspielen
+  if (receiptSound) {
+    receiptSound.currentTime = 0;
+    receiptSound.play().catch(() => {});
+  }
 
   const geom = receipt.geometry;
   const posAttribute = geom.attributes.position;

@@ -26,21 +26,27 @@
   </div>
   <!--<EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />-->
 
-  <Countdown
-    v-if="!endScreen"
-    ref="countdown"
-    class="z-20"
-    @startSetup="startSetup"
-  />
+    <Countdown
+      v-if="!endScreen"
+      ref="countdown"
+      class="z-20"
+      @startSetup="startSetup"
+    />
 
-  <Box
-    v-if="!endScreen"
-    ref="threeJS"
-    class="-z-10"
-    :mousePos="mousePosition"
-    :scrollVal="scrollValue"
-    :faceDisplay="faceDisplayRef"
-  />
+    <Box
+      v-if="!endScreen"
+      ref="threeJS"
+      class="-z-10"
+      :mousePos="mousePosition"
+      :scrollVal="scrollValue"
+      :faceDisplay="faceDisplayRef"
+    />
+
+  <Story v-if="variablesStore.showInnerBody"/>
+  
+</div>
+
+
 </template>
 
 <script setup lang="ts">

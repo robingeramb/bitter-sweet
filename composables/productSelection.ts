@@ -30,6 +30,12 @@ let initialProductScale = new THREE.Vector3(); // NEU: Variable zum Speichern de
 let didDrag = false; // NEU: Verhindert, dass nach dem Rotieren ein Klick-Event ausgelöst wird.
 let initialProductForward = new THREE.Vector3(); // NEU: Speichert die "Vorderseite" des Produkts bei der Auswahl
 
+// NEU: Sounds für die Interaktionen
+const backSound = typeof Audio !== "undefined" ? new Audio("/sound/back.mov") : null;
+if (backSound) backSound.volume = 0.5;
+const putSound = typeof Audio !== "undefined" ? new Audio("/sound/put.mov") : null;
+if (putSound) putSound.volume = 0.5;
+
 export function clickEvent(event: MouseEvent) {
   // KORREKTUR: Der Klick kommt jetzt immer aus der Mitte des Bildschirms,
   // sowohl im FPV- als auch im selectMode.
@@ -167,6 +173,12 @@ export function selectedProductToCart() {
   // KORREKTUR: Übergib das Originalobjekt und das angezeigte Produkt an die Warenkorb-Logik.
   // Das Klonen und Löschen wird dort zentral gehandhabt.
   if (getSelectedProduct() && getLastClickedObject()) {
+    // NEU: Sound abspielen
+    if (putSound) {
+      putSound.currentTime = 0;
+      putSound.play().catch(() => {});
+    }
+
     // Deaktiviere die Buttons, um doppelte Klicks zu verhindern.
     productView.value = false;
 
@@ -183,6 +195,12 @@ export function selectedProductToShelf() {
   _outlinePass.selectedObjects = [];
 
   if (getLastClickedObject()) { // KORREKTUR: Prüfe nur das Originalobjekt
+    // NEU: Sound abspielen
+    if (backSound) {
+      backSound.currentTime = 0;
+      backSound.play().catch(() => {});
+    }
+
     getLastClickedObject()!.visible = true; // KORREKTUR: Mache das Originalobjekt wieder sichtbar
     // Da wir in `handleProductSelection` keinen Klon mehr erstellen, müssen wir auch keinen löschen.
     if (getSelectedProduct()) {
