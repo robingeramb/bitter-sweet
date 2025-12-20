@@ -9,6 +9,10 @@ import {
 // Wichtig: GSAP für die Animation importieren
 import { gsap } from "gsap";
 
+// NEU: Sound für die Kamerafahrt
+const whooshSound = typeof Audio !== "undefined" ? new Audio("/sound/whoosh.mp3") : null;
+if (whooshSound) whooshSound.volume = 0.5;
+
 let clickedObject;
 const mouse = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
@@ -35,6 +39,12 @@ export function clickCheckout(event, selectedCheckout) {
   raycaster.setFromCamera(mouse, camera);
   let intersects = raycaster.intersectObjects([selectedCheckout], true);
   if (intersects.length > 0) {
+    // NEU: Sound abspielen
+    if (whooshSound) {
+      whooshSound.currentTime = 0;
+      whooshSound.play().catch(() => {});
+    }
+
     clickedObject = selectedCheckout;
     let focusObject = clickedObject.getObjectByName("Display");
     if (!focusObject) {

@@ -1,14 +1,15 @@
 <template>
-  <div @click="startSoundOnFirstInteraction"> <!-- NEU: Klick-Handler für den Sound-Start -->
+  <div>
     <!-- NEU: Persistente Audio-Elemente -->
-    <audio ref="primarySound" loop muted></audio>
-    <audio ref="secondarySound" loop muted></audio>
-    <audio ref="ambientSound" loop muted></audio>
-    <audio ref="growSound" src="/sound/grow.mp3" muted></audio>
+    <audio ref="primarySound" loop></audio>
+    <audio ref="secondarySound" loop></audio>
+    <audio ref="ambientSound" loop></audio>
+    <audio ref="growSound" src="/sound/grow.mp3"></audio>
 
     <Parallax
       v-if="currentScene === 'liver'"
       :intro-text-prop="computedLiverIntro"
+      :intro-audio-src="!isSecondPlaythrough ? 'organs_liver_intro' : undefined"
       :main-image-healthy="'/parallax/Leber_Healthy3.png'"
       :main-image-disease="'/parallax/Leber3.png'"
       :text-parts-prop="computedLiverTexts"
@@ -22,6 +23,7 @@
     <Parallax
       v-if="currentScene === 'heart'"
       :intro-text-prop="computedHeartIntro"
+      :intro-audio-src="!isSecondPlaythrough ? 'organs_heart_intro' : undefined"
       :main-image-healthy="'/parallax/Herz_Healthy.png'"
       :main-image-disease="'/parallax/Herz_Disease.png'"
       :text-parts-prop="computedHeartTexts"
@@ -53,7 +55,7 @@ const props = defineProps({
   // NEU: Prop, um den Zuckerwert vom Spiel zu erhalten.
   sugarAmount: {
     type: Number,
-    default: 100, // Standardwert für einen hohen Zuckerkonsum
+    default: 80, // Standardwert für einen hohen Zuckerkonsum
   }
 });
 
@@ -65,12 +67,11 @@ const primarySound = ref<HTMLAudioElement | null>(null);
 const secondarySound = ref<HTMLAudioElement | null>(null);
 const ambientSound = ref<HTMLAudioElement | null>(null);
 const growSound = ref<HTMLAudioElement | null>(null);
-let hasInteracted = false;
 
 // KORREKTUR: Typ für die Text-Objekte definieren.
 interface TextPart {
   text: string;
-  duration: number;
+  audioSrc: string;
 }
 
 // KORREKTUR: Typen für die Sound-Konfiguration definieren, um Typsicherheit zu gewährleisten.
@@ -100,7 +101,7 @@ const sceneSounds: { [key in 'liver' | 'heart']: SceneSoundConfig } = {
 
 // NEU: Funktion zum Abspielen der Sounds für die aktuelle Szene
 const playSceneSounds = (sceneName: 'liver' | 'heart') => {
-  if (!hasInteracted || !primarySound.value || !secondarySound.value || !ambientSound.value) return;
+  if (!primarySound.value || !secondarySound.value || !ambientSound.value) return;
 
   const sounds = sceneSounds[sceneName];
   const origin = window.location.origin;
@@ -146,43 +147,43 @@ const playSceneSounds = (sceneName: 'liver' | 'heart') => {
 // --- Texte für den ersten Durchlauf ---
 
 const liverTextsHealthy: TextPart[] = [
-  { text: "Your liver is in great shape.", duration: 4 },
-  { text: "A low sugar intake helps it to function optimally and prevent disease.", duration: 6 },
+  { text: "Your liver is in great shape.", audioSrc: "organs_liver_healthy1" },
+  { text: "A low sugar intake helps it to function optimally and prevent disease.", audioSrc: "organs_liver_healthy2" },
 ];
 const liverTextsMedium: TextPart[] = [
-  { text: "Your sugar consumption is slightly elevated.", duration: 4 },
-  { text: "This can lead to the storage of fat in the liver over time, increasing health risks.", duration: 6 },
+  { text: "Your sugar consumption is slightly elevated.", audioSrc: "organs_liver_medium1" },
+  { text: "This can lead to the storage of fat in the liver over time, increasing health risks.", audioSrc: "organs_liver_medium2" },
 ];
 const liverTextsUnhealthy: TextPart[] = [
-  { text: "Around 25% of adults have a liver stuffed with fat—mostly thanks to sugar!", duration: 4 },
-  { text: "Feed it too much sugar and it swells up, flirting with serious trouble like cirrhosis.", duration: 7 },
+  { text: "Around 25% of adults have a liver stuffed with fat—mostly thanks to sugar!", audioSrc: "organs_liver_unhealthy1" },
+  { text: "Feed it too much sugar and it swells up, flirting with serious trouble like cirrhosis.", audioSrc: "organs_liver_unhealthy2" },
 ];
 
 const heartTextsHealthy: TextPart[] = [
-    { text: "Your heart is strong and healthy. Excellent!", duration: 4 },
-    { text: "Maintaining a low-sugar diet protects your blood vessels and keeps your heart healthy.", duration: 6 },
+    { text: "Your heart is strong and healthy. Excellent!", audioSrc: "organs_heart_healthy1" },
+    { text: "Maintaining a low-sugar diet protects your blood vessels and keeps your heart healthy.", audioSrc: "organs_heart_healthy2" },
 ];
 const heartTextsMedium: TextPart[] = [
-    { text: "Elevated sugar levels can increase risk factors for heart disease.", duration: 4 },
-    { text: "This includes high blood pressure and inflammation. Consider healthier alternatives.", duration: 6 },
+    { text: "Elevated sugar levels can increase risk factors for heart disease.", audioSrc: "organs_heart_medium1" },
+    { text: "This includes high blood pressure and inflammation. Consider healthier alternatives.", audioSrc: "organs_heart_medium2" },
 ];
 const heartTextsUnhealthy: TextPart[] = [
-  { text: "But don’t worry… too much sugar will take care of that.", duration: 5 },
-  { text: "Every extra spoon of sugar makes your heart work overtime,<br>thickens its walls, fattens it up, and clogs its vessels—turning it into a stiff,<br>sluggish pump that’s always behind.", duration: 7 },
+  { text: "But don’t worry… too much sugar will take care of that.", audioSrc: "organs_heart_unhealthy1" },
+  { text: "Every extra spoon of sugar makes your heart work overtime,<br>thickens its walls, fattens it up, and clogs its vessels—turning it into a stiff,<br>sluggish pump that’s always behind.", audioSrc: "organs_heart_unhealthy2" },
 ];
 
 // --- Texte für den zweiten, "umgekehrten" Durchlauf ---
 
 const liverTextsReversed: TextPart[] = [
-  { text: "Your liver has recovered. Well done!", duration: 4 },
-  { text: "By reducing your sugar intake, you have successfully reversed the damage.", duration: 6 },
-  { text: "A healthy liver is crucial for your overall well-being and a long life.", duration: 8 }
+  { text: "Your liver has recovered. Well done!", audioSrc: "organs_liver_reversed1" },
+  { text: "By reducing your sugar intake, you have successfully reversed the damage.", audioSrc: "organs_liver_reversed2" },
+  { text: "A healthy liver is crucial for your overall well-being and a long life.", audioSrc: "organs_liver_reversed3" }
 ];
 
 const heartTextsReversed: TextPart[] = [
-  { text: "Your heart is getting stronger.", duration: 4 },
-  { text: "Lower sugar intake reduces blood pressure and inflammation, protecting you from heart disease.", duration: 7 },
-  { text: "You have taken a big step towards a healthier heart and a longer life.", duration: 8 }
+  { text: "Your heart is getting stronger.", audioSrc: "organs_heart_reversed1" },
+  { text: "Lower sugar intake reduces blood pressure and inflammation, protecting you from heart disease.", audioSrc: "organs_heart_reversed2" },
+  { text: "You have taken a big step towards a healthier heart and a longer life.", audioSrc: "organs_heart_reversed3" }
 ];
 
 // NEU: Computed Properties zur Auswahl der richtigen Texte und Titel basierend auf dem Zuckerwert.
@@ -210,16 +211,12 @@ const computedHeartTexts = computed(() => {
 
 const computedLiverIntro = computed(() => {
     if (props.isSecondPlaythrough) return 'Your liver is recovering.';
-    if (healthState.value === 'healthy') return 'This is your healthy liver.';
-    if (healthState.value === 'medium') return 'This is your liver.';
-    return 'Check out your liver:<br>lean, mean, and ready<br>to clean up your mess!';
+    return 'Your liver —<br>lean, mean, ready to clean.';
 });
 
 const computedHeartIntro = computed(() => {
     if (props.isSecondPlaythrough) return 'Your heart is recovering.';
-    if (healthState.value === 'healthy') return 'This is your healthy heart.';
-    if (healthState.value === 'medium') return 'This is your heart.';
-    return 'Oh look, your heart.<br>Still holding it together.';
+    return 'Now look.. your heart.<br>Still holding it together.';
 });
 
 // Die Funktion zur Erzeugung der Partikelfarben, spezifisch für die Leber-Szene.
@@ -238,17 +235,6 @@ const getHeartParticleColor = (): string => {
   const green = Math.floor(Math.random() * 10);    // Bereich: 0-9
   const blue = Math.floor(Math.random() * 10);     // Bereich: 0-9
   return `rgb(${red}, ${green}, ${blue})`;
-};
-
-// NEU: Startet die Sounds bei der ersten Benutzerinteraktion
-const startSoundOnFirstInteraction = () => {
-  if (hasInteracted || !primarySound.value || !secondarySound.value || !ambientSound.value || !growSound.value) return;
-  hasInteracted = true;
-  primarySound.value.muted = false;
-  secondarySound.value.muted = false;
-  ambientSound.value.muted = false;
-  growSound.value.muted = false;
-  playSceneSounds(currentScene.value as 'liver' | 'heart');
 };
 
 // NEU: Watcher, der die Sounds beim Szenenwechsel aktualisiert

@@ -2,7 +2,7 @@
   <ClientOnly class="pointer-events-none">
     <div
       id="ar-container"
-      class="relative pointer-events-none w-full overflow-hidden"
+      class="relative pointer-events-none w-full translate-y-1/2 overflow-hidden"
     >
       <canvas ref="canvasEl" class="output_canvas pointer-events-none"></canvas>
       <video

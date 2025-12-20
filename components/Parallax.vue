@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isSceneActive">
+  <div v-if="isSceneActive" class="scene-wrapper">
     <!-- NEU: Wrapper-Div hinzugefügt -->
 
     <!-- NEU: Intro-Overlay für den Startbildschirm (außerhalb des Parallax-Containers) -->
@@ -183,13 +183,18 @@ import gsap from "gsap";
 // KORREKTUR: Interface für die Text-Objekte, die jetzt auch eine Dauer enthalten.
 interface TextPart {
   text: string;
-  duration: number;
+  audioSrc: string;
 }
 
 const props = defineProps({
   introTextProp: {
     type: String,
     required: true,
+  },
+  // NEU: Audio für das Intro
+  introAudioSrc: {
+    type: String,
+    default: undefined,
   },
   mainImageHealthy: {
     type: String,
@@ -273,6 +278,7 @@ const backgroundTint = ref<HTMLElement | null>(null); // NEU: Referenz für die 
 const sugarCounter = ref<HTMLElement | null>(null); // NEU: Referenz für den Zuckerzähler
 const sugarAmountText = ref<HTMLElement | null>(null); // NEU: Referenz für den Zuckerzähler-Text
 let currentTextIndex = 0;
+const currentVoiceOver = ref<HTMLAudioElement | null>(null); // NEU: Aktuelles Voiceover
 const showNextButton = ref(false); // NEU: Steuert die Sichtbarkeit des "Next"-Buttons
 const fadeOutOverlay = ref<HTMLElement | null>(null); // NEU: Referenz für das Fade-Out-Overlay
 const isSceneActive = ref(true); // NEU: Steuert die Sichtbarkeit der gesamten Szene
@@ -502,17 +508,12 @@ const animateParticles = () => {
 
     // KORREKTUR: Hauptanimation (Zoom, Leber, etc.) startet erst, wenn das Intro ausfadet
     if (runMainAnimation) {
-      // --- Kamera-Animation: Zoom und Handkamera-Effekt (korrigiert) ---
+      // --- Kamera-Animation: Handkamera-Effekt nach dem Zoom ---
+      // Der Zoom selbst wird jetzt über GSAP gesteuert (siehe runIntroAnimation)
       const elapsedTime = time - animationStartTime;
-      if (elapsedTime < zoomDuration) {
-        // 1. Zoom-In Animation am Anfang
-        const progress = elapsedTime / zoomDuration;
-        const easedProgress = 1 - Math.pow(1 - progress, 4); // KORREKTUR: Stärkeres Ease-Out (Quart)
-        // Animiert die Perspektive von 5000px (fern) auf 1200px (nah), was einen Zoom-In-Effekt erzeugt
-        perspective.value = 20000 - 18800 * easedProgress; // KORREKTUR: Start-Perspektive noch weiter erhöht
-      } else {
+      if (elapsedTime >= zoomDuration) {
         // 2. Handkamera-Effekt nach dem Zoom (angewendet auf die Maus)
-        perspective.value = 1200; // Endwert der Perspektive beibehalten
+        // perspective.value ist bereits durch GSAP auf 1200 gesetzt
         const shakeIntensity = 0.005;
         const noiseX =
           (Math.sin(time * 0.00025) + Math.cos(time * 0.00038)) *
@@ -776,8 +777,35 @@ const triggerSugarParticles = () => {
   });
 };
 
+// NEU: Hilfsfunktion zum Laden von Audio und Ermitteln der Dauer
+const prepareAudio = (filename: string): Promise<{ audio: HTMLAudioElement, duration: number }> => {
+  return new Promise((resolve) => {
+    const audio = new Audio(`/voices/${filename}.mp3`);
+    audio.onloadedmetadata = () => {
+      // Sicherstellen, dass duration eine gültige Zahl ist
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 3;
+      resolve({ audio, duration });
+    };
+    audio.onerror = () => {
+      console.warn(`Audio ${filename} not found.`);
+      resolve({ audio, duration: 3 }); // Fallback-Dauer
+    };
+    // Fallback Timeout, falls Metadata nicht lädt
+    setTimeout(() => resolve({ audio, duration: 3 }), 2000);
+  });
+};
+
+const playVoiceOver = (audio: HTMLAudioElement) => {
+  if (currentVoiceOver.value) {
+    currentVoiceOver.value.pause();
+    currentVoiceOver.value.currentTime = 0;
+  }
+  currentVoiceOver.value = audio;
+  audio.play().catch(e => console.warn("Voiceover play failed", e));
+};
+
 // NEU: GSAP-Animation für das Intro
-const runIntroAnimation = () => {
+const runIntroAnimation = async () => {
   if (
     !introOverlay.value ||
     !introText.value ||
@@ -790,37 +818,45 @@ const runIntroAnimation = () => {
   )
     return;
 
+  // 1. Audios vorladen und Dauern ermitteln
+  let introAudioData = null;
+  if (props.introAudioSrc) {
+    introAudioData = await prepareAudio(props.introAudioSrc);
+  }
+
+  const textPartsData = [];
+  for (const part of props.textPartsProp) {
+    const data = await prepareAudio(part.audioSrc);
+    textPartsData.push({ ...part, audio: data.audio, duration: data.duration });
+  }
+
+  // 2. Timeline erstellen
   const textEl = textElement.value;
 
   const tl = gsap.timeline({});
-  // 1. Text fliegt ein
-  tl.fromTo(
-    introText.value,
-    {
-      // from
-      y: "100%",
-      scale: 2.5,
-      opacity: 0,
-      filter: "blur(12px)",
-    },
-    {
-      // to
-      y: "0%",
-      scale: 1,
+
+  // Initial Setup: Overlay startet schwarz (1), Text winzig und unsichtbar
+  gsap.set(introOverlay.value, { opacity: 1 });
+  gsap.set(introText.value, { scale: 0.1, opacity: 0, filter: "blur(10px)" });
+
+  // Intro Audio starten (falls vorhanden)
+  if (introAudioData) {
+    playVoiceOver(introAudioData.audio);
+  }
+
+  // Intro Animation
+  // 1. Text wird größer (winzig -> groß) im Dunkeln
+  tl.to(introText.value, {
+      scale: 1.1,
       opacity: 1,
-      filter: "blur(0px)", // KORREKTUR: Text wird am Ende scharf
-      duration: 1.5, // Schnelleres Einfliegen
-      ease: "power3.out",
-    }
-  )
-    // 2. Text bleibt für 2 Sekunden sichtbar
-    .to(introText.value, {
-      duration: 0.5,
+      filter: "blur(0px)",
+      duration: 4.0, // Langsamerer Anflug
+      ease: "power2.out",
     })
-    // 3. Intro-Text und Overlay faden aus
+    // 2. Intro-Text und Overlay faden aus (Szene enthüllen)
     .to([introOverlay.value, introText.value], {
       opacity: 0,
-      duration: 1.0, // Schnelleres Ausblenden
+      duration: 2.0,
       ease: "power2.in",
       onStart: () => {
         // Hauptanimation (Zoom, Partikel etc.) starten
@@ -837,17 +873,30 @@ const runIntroAnimation = () => {
           gsap.set(unhealthyOrgan.value, { opacity: 0 });
         }
         gsap.delayedCall(zoomDuration / 1000, startHeartbeatAnimation);
+
+        // NEU: Zoom-Animation via GSAP für eine bessere Kurve
+        gsap.fromTo(perspective, 
+          { value: 6000 }, // Startwert verringert (weniger flach), um den "toten Punkt" am Anfang zu vermeiden
+          { 
+            value: 1200, 
+            duration: zoomDuration / 1000, 
+            ease: "expo.out" // Expo Out sorgt für einen schnellen Start und sanftes Landen
+          }
+        );
       },
       onComplete: () => {
         if (introOverlay.value) introOverlay.value.style.display = "none";
       },
     })
     // 4. Gesundes Organ für 2 Sekunden zeigen
-    .to({}, { duration: 2 })
+    // Wenn Intro-Audio länger ist als die Animation bisher, hier warten?
+    // Wir lassen es einfach laufen.
+    .to({}, { duration: 1 })
 
     // 5. Dunkler werden und den ersten Text anzeigen
     .add(() => {
-      textEl.innerHTML = props.textPartsProp[0].text;
+      textEl.innerHTML = textPartsData[0].text;
+      playVoiceOver(textPartsData[0].audio);
     })
     .to(
       [textBackdrop.value, textBlurVignette.value],
@@ -870,7 +919,7 @@ const runIntroAnimation = () => {
       },
       "-=1.0" // Startet 1s nach dem Einblenden des Backdrops
     )
-    .to({}, { duration: props.textPartsProp[0].duration }) // Text für definierte Dauer halten
+    .to({}, { duration: textPartsData[0].duration }) // Text für Audio-Dauer halten
 
     // 6. Partikel-Animation 1 Sekunde vor dem nächsten Schritt starten
     .add(triggerSugarParticles, "-=2.0")
@@ -980,8 +1029,9 @@ const runIntroAnimation = () => {
 
     // 8. Dunkler werden und den letzten Text anzeigen
     .add(() => {
-      const lastText = props.textPartsProp[props.textPartsProp.length - 1];
-      textEl.innerHTML = lastText.text;
+      const lastIndex = textPartsData.length - 1;
+      textEl.innerHTML = textPartsData[lastIndex].text;
+      playVoiceOver(textPartsData[lastIndex].audio);
     })
     .to([textBackdrop.value, textBlurVignette.value], {
       opacity: 1,
@@ -1001,8 +1051,8 @@ const runIntroAnimation = () => {
       "-=1.0"
     )
     .to(
-      {},
-      { duration: props.textPartsProp[props.textPartsProp.length - 1].duration }
+      {}, 
+      { duration: textPartsData[textPartsData.length - 1].duration }
     ) // Letzten Text halten
 
     // 9. Alles ausblenden und "Next"-Button zeigen
@@ -1055,10 +1105,21 @@ const handleNextClick = () => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(animationFrameId);
   window.removeEventListener("mousemove", handleMouseMove); // Listener wieder entfernen
+  if (currentVoiceOver.value) {
+    currentVoiceOver.value.pause();
+    currentVoiceOver.value = null;
+  }
 });
 </script>
 
 <style scoped>
+/* NEU: Wrapper für globale Helligkeitsanpassung */
+.scene-wrapper {
+  width: 100%;
+  height: 100%;
+  filter: brightness(1.15); /* Gesamte Szene etwas heller machen */
+}
+
 .parallax-container {
   position: relative;
   width: 100vw;
@@ -1128,7 +1189,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   z-index: 100; /* Ganz oben */
-  opacity: 1; /* Startet sichtbar */
+  opacity: 1; /* Startet sichtbar (schwarz) */
 }
 
 .intro-text {
@@ -1432,7 +1493,7 @@ onBeforeUnmount(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: #8a9a5b; /* KORREKTUR: Ein etwas giftigerer, moosiger Grün-Ton */
+  background-color: #c98e26; /* KORREKTUR: Gelblich/Rötlicher Ton (Rost/Orange) statt Grün */
   mix-blend-mode: color; /* KORREKTUR: 'color' ändert nur die Farbe, ohne das Bild abzudunkeln */
   opacity: 0; /* Wird über GSAP animiert */
   z-index: 0; /* Hinter dem Organ, aber über dem Hintergrundbild/den Strahlen */

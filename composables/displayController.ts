@@ -21,17 +21,17 @@ const messages: MessageLayout[] = [
     ],
   },
   {
-    lines: [{ text: " But at what cost?", size: 64, color: "white" }],
+    lines: [{ text: "But who’s really paying for it?", size: 64, color: "white" }],
   },
   {
     lines: [
       {
-        text: "Grocerys are filled with sugar",
+        text: "Grocery stores are basically sugar showrooms.",
         size: 36,
         color: "white",
       },
       {
-        text: "and we often dont even know about it.",
+        text: "You just weren’t supposed to notice.",
         size: 36,
         color: "white",
       },

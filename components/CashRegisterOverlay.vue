@@ -3,6 +3,7 @@
     <Button
       class="absolute z-50 left-1/2 -translate-x-1/2 bottom-6"
       :text="'Continue'"
+      v-if="!variablesStore.showInnerBody && !buttonClicked"
       @click="cameraTurn"
     />
   </div>
@@ -12,6 +13,9 @@
 import { camera, taskDone, endScreen } from "@/composables/useThree";
 import gsap from "gsap";
 import { useVariablesStore } from "@/stores/store";
+import { ref } from "vue";
+const variablesStore = useVariablesStore();
+
 
 interface Props {
   faceDisplayRef: any;
@@ -20,10 +24,11 @@ const emit = defineEmits(["fadeRequested"]);
 
 const props = defineProps<Props>();
 
-function cameraTurn() {
-  const targetY = 0.09776897845147936;
-  let variablesStore = useVariablesStore();
+const buttonClicked = ref(false);
 
+function cameraTurn() {
+  buttonClicked.value = true;
+  const targetY = 0.09776897845147936;
   // 1. WICHTIG: Die Reihenfolge der Achsen ändern.
   // 'YXZ' sorgt dafür, dass die Y-Drehung (Links/Rechts) unabhängig von der Neigung (X) ist.
   // .reorder() rechnet die aktuellen Winkel so um, dass die Kamera nicht springt.

@@ -1,42 +1,48 @@
 <template>
-  <CashRegisterOverlay
-    v-if="!endScreen && faceDisplayRef && variablesStore.showReceiptDone"
-    :faceDisplayRef="faceDisplayRef"
-    @fadeRequested="fadeInFace"
-  />
+  <div>
+    <CashRegisterOverlay
+      v-if="!endScreen && faceDisplayRef && variablesStore.showReceiptDone"
+      :faceDisplayRef="faceDisplayRef"
+      @fadeRequested="fadeInFace"
+    />      
 
-  <SugarConsequences
-    :sugarValue="90"
-    v-if="!endScreen && faceDisplayRef && variablesStore.cashoutFinished"
-    :releaseWarning="true"
-    :mouthOpen="variablesStore.mouthOpen"
-    @sequence-completed="handleSequenceComplete"
-  />
-  <!---->
-  <div class="szene" v-if="!endScreen && variablesStore.cashoutStart">
-    <div class="wrapper">
-      <div class="faceConsequences pointer-events-none" ref="faceDisplayRef">
-        <ConsequencesFace ref="consequencesFace" />
+    <SugarConsequences
+      :sugarValue="90"
+      :releaseWarning="true"    
+      v-if="!endScreen && faceDisplayRef && variablesStore.cashoutFinished"
+      :mouthOpen="variablesStore.mouthOpen"
+      @sequence-completed="handleSequenceComplete"
+    />
+    <div class="szene" v-if="!endScreen && variablesStore.cashoutStart">
+      <div class="wrapper">
+        <div class="faceConsequences pointer-events-none" ref="faceDisplayRef">
+          <ConsequencesFace ref="consequencesFace" />
+        </div>
       </div>
     </div>
-  </div>
-  <EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />
+    <EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />
 
-  <Countdown
-    v-if="!endScreen"
-    ref="countdown"
-    class="z-20"
-    @startSetup="startSetup"
-  />
+    <Countdown
+      v-if="!endScreen"
+      ref="countdown"
+      class="z-20"
+      @startSetup="startSetup"
+    />
 
-  <Box
-    v-if="!endScreen"
-    ref="threeJS"
-    class="-z-10"
-    :mousePos="mousePosition"
-    :scrollVal="scrollValue"
-    :faceDisplay="faceDisplayRef"
-  />
+    <Box
+      v-if="!endScreen"
+      ref="threeJS"
+      class="-z-10"
+      :mousePos="mousePosition"
+      :scrollVal="scrollValue"
+      :faceDisplay="faceDisplayRef"
+    />
+
+  <Story v-if="variablesStore.showInnerBody"/>
+  
+</div>
+
+
 </template>
 
 <script setup lang="ts">

@@ -1,8 +1,8 @@
 <template>
-  <div class="pointer-events-none">
+  <div class="pointer-events-none 2">
     <WebcamScene
       ref="webcamScene"
-      class="translate-y-1/2 pointer-events-none"
+      class=" test pointer-events-none"
     />
     <div class="pointer-events-none" v-if="!isMediaPipeLoaded">
       Lade KI-Modelle...
@@ -22,6 +22,9 @@
 import { onMounted } from "vue";
 import { useMediaPipeLoader } from "@/composables/useMediaPipeLoader";
 import gsap from "gsap";
+import { useVariablesStore } from "@/stores/store";
+
+const variablesStore = useVariablesStore();
 
 const { loadMediaPipeScripts, isMediaPipeLoaded } = useMediaPipeLoader();
 const webcamScene = ref<InstanceType<
@@ -63,7 +66,12 @@ async function startZoom(i: number, t: number) {
       x: finalX,
       y: finalY,
       ease: "power2.inOut",
+
+      onComplete: () => {
+        variablesStore.updateShowInnerBody(true);
+      }
     });
+
 
     // Aufruf der Child-Funktion in WebcamScene
     webcamScene.value?.zoomIn(i, t, mouthCenter);

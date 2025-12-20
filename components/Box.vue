@@ -67,6 +67,9 @@ let cartTargetPosition = new THREE.Vector3();
 let smoothedCartTargetPosition = new THREE.Vector3(); // NEU: Geglättete Zielposition für den Wagen
 let playerBody: CANNON.Body | null = null;
 let shoppingCartBody: CANNON.Body | null = null; // NEU: Physik-Körper für den Einkaufswagen
+let supermarketSound: HTMLAudioElement | null = null; // NEU: Hintergrundsound
+let shoppingCartSound: HTMLAudioElement | null = null; // NEU: Einkaufswagen-Sound
+let grabSound: HTMLAudioElement | null = null; // NEU: Grab-Sound
 
 const fixedTimeStep = 1 / 60; // Fester, empfohlener Timestep für die Physik
 
@@ -479,7 +482,7 @@ function renderLoop(): void {
     if (fpControls.controls.isLocked()) {
       fpControls.update(); // Maus-Rotation anwenden
 
-      const moveForce = 200;
+      const moveForce = 100;
       const force = new CANNON.Vec3();
       const euler = new THREE.Euler().setFromQuaternion(
         camera.quaternion,
@@ -552,6 +555,16 @@ function renderLoop(): void {
       );
       shoppingCartBody.quaternion.copy(targetQuaternion);
       shoppingCartBody.wakeUp();
+
+      // NEU: Sound abspielen, wenn der Wagen sich bewegt
+      if (shoppingCartSound && shoppingCartSound.paused && !variablesStore.showInnerBody) {
+        shoppingCartSound.play().catch(() => {});
+      }
+    } else {
+      // NEU: Sound pausieren, wenn der Wagen steht
+      if (shoppingCartSound && !shoppingCartSound.paused) {
+        shoppingCartSound.pause();
+      }
     }
 
     // 6. Visuelles Modell mit Physik-Modell synchronisieren
@@ -739,6 +752,12 @@ onMounted(() => {
       if (!fpControls?.controls.isLocked() && !productView.value) {
         fpControls?.controls.lock();
       } else {
+        // NEU: Sound abspielen, wenn ein Produkt angeklickt wird
+        if (hoveredProduct.value && grabSound && !productView.value) {
+          grabSound.currentTime = 0;
+          grabSound.play().catch(() => {});
+        }
+
         // KORREKTUR: Die Bewegungssperre wurde entfernt. Klick-Events werden immer ausgeführt, wenn die Steuerung gesperrt ist.
         clickEvent(event);
         clickCheckout(event, cashRegister); // Vorerst deaktiviert, um den Fehler zu isolieren
@@ -756,6 +775,32 @@ onMounted(() => {
         resetPositions();
       }
     });
+
+    // NEU: Audio initialisieren
+    supermarketSound = new Audio("/sound/supermarket.mp3");
+    supermarketSound.loop = true;
+    supermarketSound.volume = 0.5; // Leise Hintergrundatmosphäre
+
+    shoppingCartSound = new Audio("/sound/shopping_cart.wav");
+    shoppingCartSound.loop = true;
+    shoppingCartSound.volume = 0.5;
+
+    grabSound = new Audio("/sound/grab.mov");
+    grabSound.volume = 0.5;
+
+    // Hintergrundsound starten
+    if (!variablesStore.showInnerBody) {
+      supermarketSound.play().catch(() => {
+        // Fallback für Autoplay-Blocker: Starten bei erster Interaktion
+        const startAudio = () => {
+          if (!variablesStore.showInnerBody && supermarketSound) supermarketSound.play();
+          window.removeEventListener("click", startAudio);
+          window.removeEventListener("keydown", startAudio);
+        };
+        window.addEventListener("click", startAudio);
+        window.addEventListener("keydown", startAudio);
+      });
+    }
   }
 });
 
@@ -795,6 +840,19 @@ watch(selectMode, (isSelectMode: boolean) => {
   }
 });
 
+// NEU: Watcher, um den Sound zu stoppen, wenn die Parallax-Szene (InnerBody) aktiv ist
+watch(
+  () => variablesStore.showInnerBody,
+  (show) => {
+    if (show) {
+      supermarketSound?.pause();
+      shoppingCartSound?.pause();
+    } else {
+      supermarketSound?.play().catch(() => {});
+    }
+  }
+);
+
 onBeforeUnmount(() => {
   cancelAnimationFrame(_renderLoopId);
   // NEU: Trenne die Event-Listener beim Verlassen der Komponente
@@ -802,6 +860,8 @@ onBeforeUnmount(() => {
     fpControls.disconnect();
   }
   cleanUpThree(scene, _renderer);
+  supermarketSound?.pause();
+  shoppingCartSound?.pause();
 });
 
 /* --- Exposed Functions --- */
