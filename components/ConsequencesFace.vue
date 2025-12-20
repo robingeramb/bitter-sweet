@@ -1,9 +1,6 @@
 <template>
   <div class="pointer-events-none">
-    <WebcamScene
-      ref="webcamScene"
-      class="translate-y-1/2 pointer-events-none"
-    />
+    <WebcamScene ref="webcamScene" class="pointer-events-none" />
     <div class="pointer-events-none" v-if="!isMediaPipeLoaded">
       Lade KI-Modelle...
     </div>
@@ -41,7 +38,7 @@ setTimeout(() => {
 async function startZoom(i: number, t: number) {
   // 1. Zuerst das Einfrieren und die Mundposition abrufen
   const mouthCenter = await faceDisplayComponent.value?.freezeFrame();
-  console.log(mouthCenter);
+
   if (faceDisplay.value && mouthCenter) {
     const displayElement = faceDisplay.value;
     const elementRect = displayElement.getBoundingClientRect();

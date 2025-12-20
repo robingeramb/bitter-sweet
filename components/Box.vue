@@ -395,7 +395,6 @@ async function setupCashRegister(): Promise<void> {
     let paperPosition: THREE.Mesh | null = null;
 
     cashRegister.traverse((child) => {
-      console.log(child.name);
       child.castShadow = true;
       if (child.name === "Display") {
         child.material = displayMaterial;
@@ -420,11 +419,9 @@ async function setupCashRegister(): Promise<void> {
       const width = (box.max.x - box.min.x) * paperPosition.scale.x;
 
       // 2. oberste Kante bestimmen
-      await createReceiptShaderMesh(width, paperPosition);
+      createReceiptShaderMesh(width, paperPosition, cashRegister);
 
       // 3. Normalenrichtung bestimmen
-
-      cashRegister.add(receipt);
 
       // 5. Animation
     }
@@ -707,7 +704,8 @@ onMounted(() => {
     // Er soll NUR mit dem Boden/Regalen kollidieren.
     playerBody.collisionFilterGroup = COLLISION_GROUPS.PLAYER;
     // KORREKTUR: Der Spieler soll nur noch mit dem Boden und den Regalen kollidieren, nicht mehr mit dem Einkaufswagen.
-    playerBody.collisionFilterMask = COLLISION_GROUPS.GROUND | COLLISION_GROUPS.SHELF;
+    playerBody.collisionFilterMask =
+      COLLISION_GROUPS.GROUND | COLLISION_GROUPS.SHELF;
 
     // Füge die Formen zum Körper hinzu
     playerBody.addShape(playerShape, new CANNON.Vec3(0, 0, 0)); // Box zentriert
@@ -717,18 +715,6 @@ onMounted(() => {
     // NEU: Event-Listener für Kollisionen direkt am Körper hinzufügen
 
     usePlayerBody(playerBody);
-
-    playerBody.addEventListener("collide", (event: any) => {
-      // DEBUG: Logge Kollisionen
-      const otherBody = event.body;
-      if (otherBody && (otherBody as any).name) {
-        if ((otherBody as any).name !== "Boden")
-          console.log("Kollision mit:", (otherBody as any).name);
-      } else if (otherBody) {
-        console.log("Kollision mit unbekanntem Objekt ID:", otherBody.id);
-      }
-      // Dieser Event wird bei jeder Kollision zwischen dem Spieler und einem anderen Objekt ausgelöst.
-    });
 
     // KORREKTUR: Der 'click'-Listener empfängt nur MouseEvents. Die Tasten-Logik wird in den 'keydown'-Listener verschoben.
     window.addEventListener("click", (event: MouseEvent) => {

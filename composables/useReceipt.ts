@@ -1,14 +1,11 @@
 import * as THREE from "three";
 import gsap from "gsap";
 import { useVariablesStore } from "~/stores/store";
+import { useShoppingCartStore } from "~/stores/store";
 
-const receiptData = {
+let receiptData = {
   headline: "Receipt",
-  items: [
-    { name: "Cola 1L", sugar: 106 },
-    { name: "Nutella 400g", sugar: 212 },
-    { name: "Snickers", sugar: 26 },
-  ],
+  items: [],
 };
 
 export let receipt: THREE.Mesh;
@@ -90,115 +87,179 @@ export function animateReceipt() {
 }
 
 /**
- * Erstellt die Receipt-Textur (Canvas)
+ * Hilfsfunktion: Zerlegt Text in Zeilen basierend auf maximaler Breite
+ */
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(" ");
+  const lines = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const width = ctx.measureText(currentLine + " " + word).width;
+    if (width < maxWidth) {
+      currentLine += " " + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  lines.push(currentLine);
+  return lines;
+}
+
+/**
+ * Erstellt die Receipt-Textur (Canvas) mit Zeilenumbruch
  */
 export async function createReceiptTexture(data, widthMeter) {
-  const DPI = 300; // hohe Schärfe für klare Schrift
-  const pxPerMeter = 3779; // 1m ≈ 3779px bei 96dpi → für 300dpi skalieren wir später hoch
-  const scale = 3.125; // 96dpi → 300dpi Faktor
+  // --- KONFIGURATION ---
+  const DPI = 300;
+  const pxPerMeter = 3779;
+  const scale = 3.125;
   const pxpm = pxPerMeter * scale;
-
   const widthPx = widthMeter * pxpm;
 
-  // TEXT STYLE
+  // Fonts
   const fontXtreme = "900 100px Arial";
   const fontTitle = "bold 70px Arial";
   const fontItem = "42px Arial";
   const fontSum = "600 42px Arial";
 
-  // --- PRE-CALC HEIGHT ---
-  const lineGap = 40;
+  // Abstände
+  const marginX = 50;
+  const lineGap = 40; // Abstand zwischen Items
+  const lineHeight = 50; // Höhe einer einzelnen Textzeile
   const titleHeight = 160;
-  const itemHeight = 70;
-  const sumHeight = 520;
+  const sumSectionHeight = 520; // Pauschale Höhe für den Footer (Total, Limit, etc.)
 
-  const itemsHeight = data.items.length * (itemHeight + lineGap);
-  const totalHeight = titleHeight + itemsHeight + sumHeight + 200;
+  // Bereich für Zucker-Anzeige rechts reservieren (z.B. 250px)
+  const sugarColumnWidth = 100;
+  const maxNameWidth = widthPx - marginX * 2 - sugarColumnWidth;
 
-  const heightPx = totalHeight;
+  // --- SCHRITT 1: VORBERECHNUNG (Messen) ---
+  // Wir brauchen einen Dummy-Context zum Messen der Textbreite
+  const tempCanvas = document.createElement("canvas");
+  const tempCtx = tempCanvas.getContext("2d");
+  tempCtx.font = fontItem;
 
-  // --- CANVAS ---
+  let dynamicItemsHeight = 0;
+  const processedItems = [];
+
+  data.items.forEach((item) => {
+    // Zeilenumbruch berechnen
+    const lines = wrapText(tempCtx, item.productName, maxNameWidth);
+
+    // Höhe dieses Items: (Anzahl Zeilen * Zeilenhöhe) + Abstand zum nächsten Item
+    const itemHeight = lines.length * lineHeight + lineGap;
+
+    dynamicItemsHeight += itemHeight;
+
+    processedItems.push({
+      ...item,
+      lines: lines, // Die berechneten Zeilen speichern wir für später
+      height: itemHeight, // Die Höhe dieses Blocks
+    });
+  });
+
+  // Gesamthöhe berechnen
+  const totalHeight = titleHeight + dynamicItemsHeight + sumSectionHeight + 200;
+
+  // --- SCHRITT 2: CANVAS ERSTELLEN ---
   const canvas = document.createElement("canvas");
   canvas.width = widthPx;
-  canvas.height = heightPx;
+  canvas.height = totalHeight;
   const ctx = canvas.getContext("2d");
 
-  // Spiegeln wie in deinem Code
+  // Spiegeln (Setup wie gehabt)
   ctx.translate(canvas.width, 0);
   ctx.scale(-1, 1);
 
-  // Hintergrund
+  // Hintergrund weiß
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  let y = 160;
+  let y = 160; // Start Y-Position
 
-  // --- TITLE ---
+  // --- HEADER ZEICHNEN ---
   ctx.fillStyle = "black";
   ctx.font = fontTitle;
   ctx.textAlign = "center";
   ctx.fillText(data.headline, canvas.width / 2, y);
   y += 120;
 
-  // --- ITEMS ---
+  // --- ITEMS ZEICHNEN ---
   ctx.font = fontItem;
-  ctx.textAlign = "left";
 
   let totalSugar = 0;
 
-  data.items.forEach((item) => {
-    ctx.fillText(item.name, 50, y);
+  processedItems.forEach((item) => {
+    // 1. Produktname (Linksbündig)
+    ctx.textAlign = "left";
+
+    // Jede Zeile des Namens schreiben
+    item.lines.forEach((line, index) => {
+      // y + (index * lineHeight) sorgt dafür, dass Zeilen untereinander stehen
+      ctx.fillText(line, marginX, y + index * lineHeight);
+    });
+
+    // 2. Zuckerwert (Rechtsbündig)
+    // Wir schreiben den Wert in die ERSTE Zeile des Produkts (oder item.height/2 für Mitte)
     ctx.textAlign = "right";
-    ctx.fillText(item.sugar + " g", canvas.width - 50, y);
+    ctx.fillText(item.sugarAmount + " g", canvas.width - marginX, y);
 
-    totalSugar += item.sugar;
+    totalSugar += item.sugarAmount;
 
-    ctx.textAlign = "left"; // für nächsten Loop
-    y += itemHeight;
+    // Y für das nächste Item erhöhen
+    // Wir addieren die tatsächliche Höhe dieses Items (inkl. aller Zeilen)
+    y += item.height;
   });
 
-  // --- TOTAL ---
+  // --- FOOTER / TOTAL ---
+  // Ab hier ist y dynamisch korrekt verschoben
   y += 50;
+
   ctx.font = fontSum;
   ctx.textAlign = "left";
-  ctx.fillText(`Total Sugar amount:`, 50, y);
+  ctx.fillText(`Total Sugar amount:`, marginX, y);
 
-  // Relation zum Tageslimit
   y += 80;
   ctx.font = fontTitle;
   ctx.textAlign = "right";
   ctx.fillStyle = "red";
-  ctx.fillText(`${totalSugar} g`, canvas.width - 50, y);
+  ctx.fillText(`${totalSugar} g`, canvas.width - marginX, y);
+
   y += 110;
   ctx.fillStyle = "black";
   ctx.font = fontSum;
   ctx.textAlign = "left";
+
   const maxDaily = 25;
-  const percentage = ((totalSugar / maxDaily) * 100).toFixed(0);
-  ctx.fillText(`The Healthy limit`, 50, y);
+  const percentage =
+    maxDaily > 0 ? ((totalSugar / maxDaily) * 100).toFixed(0) : 0;
+
+  ctx.fillText(`The Healthy limit`, marginX, y);
   y += 50;
-  ctx.fillText(`per day is 25g.`, 50, y);
+  ctx.fillText(`per day is 25g.`, marginX, y);
   y += 90;
   ctx.textAlign = "right";
-  ctx.fillText(`Your shopping is`, canvas.width - 50, y);
+  ctx.fillText(`Your shopping is`, canvas.width - marginX, y);
   y += 120;
 
   ctx.font = fontXtreme;
   ctx.fillStyle = "red";
-  ctx.fillText(`${percentage}%`, canvas.width - 50, y);
+  ctx.fillText(`${percentage}%`, canvas.width - marginX, y);
   y += 70;
   ctx.fillStyle = "black";
   ctx.font = fontSum;
-  ctx.fillText(`of that.`, canvas.width - 50, y);
-  y += 120;
+  ctx.fillText(`of that.`, canvas.width - marginX, y);
 
-  // --- TEXTURE ---
+  // --- TEXTURE ERSTELLEN ---
   const texture = new THREE.CanvasTexture(canvas);
   texture.flipY = true;
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
 
-  // Länge des "Papiers" in Metern zurückgeben
+  // Länge in Metern für Three.js Geometrie
   const lengthMeter = canvas.height / pxpm;
 
   return { texture, lengthMeter };
@@ -207,35 +268,49 @@ export async function createReceiptTexture(data, widthMeter) {
 /**
  * Erstellt die Receipt-Geometry + Mesh komplett unterhalb der Szene
  */
-export async function createReceiptShaderMesh(width, paperPosition) {
-  const { texture, lengthMeter } = await createReceiptTexture(
-    receiptData,
-    width
+export async function createReceiptShaderMesh(width, paperPosition, model) {
+  const shoppingCartStore = useShoppingCartStore();
+  const variablesStore = useVariablesStore();
+  watch(
+    () => variablesStore.cashoutStart,
+    async (newValue) => {
+      if (newValue === true) {
+        if (newValue) {
+          receiptData.items = shoppingCartStore.itemsInCart;
+          console.log(shoppingCartStore.itemsInCart);
+          console.log("Receipt Data:", receiptData);
+          const { texture, lengthMeter } = await createReceiptTexture(
+            receiptData,
+            width
+          );
+
+          l = lengthMeter;
+
+          const geo = new THREE.PlaneGeometry(width, lengthMeter, 2, 200);
+          geo.translate(0, -lengthMeter / 2, 0);
+
+          const mat = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.DoubleSide,
+          });
+
+          const mesh = new THREE.Mesh(geo, mat);
+
+          // Sicheres Setzen der Position & Rotation
+          if (paperPosition?.position) {
+            mesh.position.copy(paperPosition.position);
+          }
+
+          if (paperPosition?.rotation) {
+            mesh.rotation.copy(paperPosition.rotation);
+          }
+
+          receipt = mesh;
+          model.add(receipt);
+        }
+      }
+    }
   );
-
-  l = lengthMeter;
-
-  const geo = new THREE.PlaneGeometry(width, lengthMeter, 2, 200);
-  geo.translate(0, -lengthMeter / 2, 0);
-
-  const mat = new THREE.MeshBasicMaterial({
-    map: texture,
-    side: THREE.DoubleSide,
-  });
-
-  const mesh = new THREE.Mesh(geo, mat);
-
-  // Sicheres Setzen der Position & Rotation
-  if (paperPosition?.position) {
-    mesh.position.copy(paperPosition.position);
-  }
-
-  if (paperPosition?.rotation) {
-    mesh.rotation.copy(paperPosition.rotation);
-  }
-
-  receipt = mesh;
-  return mesh;
 }
 
 /**

@@ -69,13 +69,11 @@ export function initDisplayController(displayMesh: THREE.Mesh) {
   mat.map.offset.set(0, 1);
   mat.needsUpdate = true;
 
-  window.addEventListener("keydown", (e) => {
-    if (e.key.toLowerCase() === "l" && transitionState === "IDLE") {
-      transitionState = "FADING_OUT";
-    }
-  });
-
   animateDisplay();
+}
+
+export function startAnimation() {
+  transitionState = "FADING_OUT";
 }
 
 /**

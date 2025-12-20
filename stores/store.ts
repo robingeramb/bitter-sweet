@@ -14,6 +14,25 @@ export const useSliderStore = defineStore("slider", () => {
   return { sliderValue, updateSliderValue };
 });
 
+export const useShoppingCartStore = defineStore("shoppingCart", () => {
+  // 1. Der Zustand (State)
+  const itemsInCart = ref([]);
+
+  function addItemToCart(newValue: Object) {
+    itemsInCart.value.push(newValue);
+  }
+
+  function getSugarScore() {
+    let totalSugar = 0;
+    itemsInCart.value.forEach((item: any) => {
+      totalSugar += item.sugarAmount;
+    });
+    return totalSugar;
+  }
+
+  return { itemsInCart, addItemToCart, getSugarScore };
+});
+
 export const useVariablesStore = defineStore("variables", () => {
   // 1. Der Zustand (State)
   const playerInMotion = ref(true);

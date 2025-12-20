@@ -388,12 +388,6 @@ function findSugarRange() {
       found = true;
     }
   }
-
-  if (!found) {
-    console.log(
-      `sugarPerPerson (${sugarPerPerson}) liegt in keinem definierten Bereich.`
-    );
-  }
 }
 findSugarRange();
 

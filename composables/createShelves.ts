@@ -131,11 +131,5 @@ export async function createShelves(
     // KORREKTUR: Den Körper erst zur Welt hinzufügen, NACHDEM Position und Rotation gesetzt wurden!
     // Statische Körper (mass: 0) werden von der Physik-Engine oft nicht mehr aktualisiert, wenn sie nachträglich bewegt werden.
     world.addBody(shelfBody);
-    console.log(`DEBUG: Regal-Körper ${index} erstellt.`, {
-      id: shelfBody.id,
-      material: shelfBody.material,
-      group: shelfBody.collisionFilterGroup,
-      mask: shelfBody.collisionFilterMask,
-    });
   }
 }

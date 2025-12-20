@@ -47,10 +47,11 @@ function cameraTurn() {
     duration: 1.8,
     ease: "power2.inOut",
     onComplete: () => {
-      if (taskDone.value) endScreen.value = true;
-      setTimeout(() => {
-        variablesStore.updateCashoutFinished(true);
-      }, 900);
+      if (taskDone.value)
+        //endScreen.value = true;
+        setTimeout(() => {
+          variablesStore.updateCashoutFinished(true);
+        }, 900);
     },
   });
 }

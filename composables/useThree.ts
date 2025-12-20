@@ -393,11 +393,6 @@ export function unloadObjectsByDistance(maxDistance: number) {
       object.name !== "floor" &&
       object.name !== "wall"
     ) {
-      console.log(
-        `Entferne Objekt: ${
-          object.name || "(ohne Namen)"
-        } in Entfernung ${distance}`
-      );
       toRemove.push(object);
     }
   });

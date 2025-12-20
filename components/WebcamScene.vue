@@ -2,7 +2,7 @@
   <ClientOnly class="pointer-events-none">
     <div
       id="ar-container"
-      class="relative pointer-events-none w-full overflow-hidden"
+      class="relative translate-y-1/2 pointer-events-none w-full overflow-hidden"
     >
       <canvas ref="canvasEl" class="output_canvas pointer-events-none"></canvas>
       <video
@@ -12,39 +12,42 @@
         crossOrigin="anonymous"
         class="webcam_video pointer-events-none"
       ></video>
+
       <div
-        v-if="!isModelLoaded || !isCameraReady"
+        v-if="!isModelLoaded || !isCameraReady || isWarmingUp"
         class="absolute pointer-events-none inset-0 flex items-center justify-center bg-gray-900 bg-opacity-80 text-white z-20"
-      ></div>
+      >
+        <div class="text-center">
+          <p class="mb-2">{{ modelStatusMessage }}</p>
+          <p class="text-sm opacity-50">{{ debugStatusMessage }}</p>
+        </div>
+      </div>
     </div>
   </ClientOnly>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from "vue";
-import * as THREE from "three";
-
-// Importiere jetzt auch das zentrale Lade-Composable
+import { ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
 import { useMediaPipeLoader } from "../composables/useMediaPipeLoader";
-
 import { useWebcam } from "../composables/useWebcam";
 import { ThreeJSManager } from "../composables/ThreeJSManager";
 import { ARController } from "../composables/ARController";
+import { useVariablesStore } from "~/stores/store";
 
-// --- Refs für DOM und Status ---
+const variablesStore = useVariablesStore();
+
 const videoEl = ref<HTMLVideoElement | null>(null);
 const canvasEl = ref<HTMLCanvasElement | null>(null);
 
 const isModelLoaded = ref(false);
+const isWarmingUp = ref(false); // Neuer Status für den Warmup
 const modelStatusMessage = ref("Lade 3D-Modell...");
 const debugStatusMessage = ref("Initialisiere...");
 
-// --- Instanzen der Manager-Klassen ---
 let threeJSManager: ThreeJSManager | null = null;
 let arController: ARController | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
-// --- Composables ---
 const {
   isCameraReady,
   statusMessage: webcamStatusMessage,
@@ -52,14 +55,10 @@ const {
   stopWebcam,
 } = useWebcam(videoEl);
 
-// NEU: Importiere die zentrale Ladefunktion
 const { loadMediaPipeScripts } = useMediaPipeLoader();
 
-// --- Lifecycle Hooks ---
-
 function zoomIn(i: number, t: number, vector: any) {
-  let center = arController?.freeze();
-  console.log("Zoom In auf:", i, "über", t, "Sekunden. Zentrum:", center);
+  arController?.freeze();
   arController?.zoom(i, t, vector);
 }
 
@@ -68,52 +67,67 @@ onMounted(async () => {
   const video = videoEl.value!;
   const canvas = canvasEl.value!;
 
-  // 1. Starte Webcam
+  // 1. Webcam starten
   const cameraOk = await startWebcam();
   if (!cameraOk) {
     debugStatusMessage.value = webcamStatusMessage.value;
     return;
   }
 
-  // 2. Initialisiere Three.js und starte die Render-Schleife
+  // 2. Three.js Initialisierung
   threeJSManager = new ThreeJSManager(canvas);
 
-  // 3. Lade das 3D-Modell
   try {
+    // 3. 3D-Modell laden
     const threeElements = await threeJSManager.loadModel((percent) => {
       modelStatusMessage.value = `Lade Modell: ${percent.toFixed(0)}%`;
     });
     isModelLoaded.value = true;
-    modelStatusMessage.value = "Modell geladen.";
 
-    // --- 4. MEDIA PIPE LADE-LOGIK AUSGELAGERT ---
+    // 4. MediaPipe Skripte & Controller Setup
     debugStatusMessage.value = "Lade AR-Skripte...";
-
-    // Anstatt ARController.loadMediaPipeScripts() aufzurufen:
     await loadMediaPipeScripts();
 
-    debugStatusMessage.value = "Suche Gesicht...";
-
-    // 5. Initialisiere und starte den ARController
-    // (Der ARController muss jetzt die statische loadMediaPipeScripts Methode nicht mehr haben)
     arController = new ARController(video, threeElements);
-    arController.init();
 
-    debugStatusMessage.value = "AR-Anwendung gestartet.";
+    // --- NEU: DER WARMUP-PROZESS ---
+    isWarmingUp.value = true;
+    debugStatusMessage.value = "Optimiere Grafik-Leistung...";
+
+    // Starte den Preload (lädt WASM und Modelle)
+    await arController.preload();
+
+    // Führe Warmup für Three.js (Shader) und MediaPipe (Inferenz) parallel aus
+    // Der ThreeJSManager führt seinen Warmup bereits am Ende von loadModel() aus,
+    // aber wir können ihn hier explizit triggern, falls nötig.
+    await Promise.all([
+      threeJSManager.warmUp(),
+      // Falls der ARController eine explizite Warmup-Funktion hat (siehe vorherige Antwort)
+      // arController.warmUp()
+    ]);
+
+    isWarmingUp.value = false;
+    debugStatusMessage.value = "Bereit.";
+
+    // 5. Start-Trigger
+    watch(
+      () => variablesStore.showReceiptDone,
+      (done) => {
+        if (done) {
+          arController?.init();
+          debugStatusMessage.value = "AR aktiv.";
+        }
+      }
+    );
   } catch (error) {
     console.error("Setup-Fehler:", error);
-    modelStatusMessage.value = "FEHLER beim Laden oder Initialisieren.";
-    debugStatusMessage.value = modelStatusMessage.value;
+    modelStatusMessage.value = "FEHLER beim Setup.";
   }
 
-  // 6. Responsive Anpassung
   const container = document.getElementById("ar-container")!;
   resizeObserver = new ResizeObserver(() => {
     if (threeJSManager) {
       threeJSManager.resize();
-      setTimeout(() => {
-        threeJSManager.triggerRottingTransition();
-      }, 3000);
     }
   });
   resizeObserver.observe(container);
@@ -126,9 +140,7 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect();
 });
 
-defineExpose({
-  zoomIn,
-});
+defineExpose({ zoomIn });
 </script>
 
 <style scoped>
@@ -140,7 +152,7 @@ defineExpose({
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  display: none; /* Verstecke das Videoelement */
+  display: none;
 }
 
 .output_canvas {
@@ -154,7 +166,6 @@ defineExpose({
 
 #ar-container {
   width: 100vw;
-
   height: 100vh;
 }
 </style>

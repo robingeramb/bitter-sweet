@@ -1,7 +1,28 @@
 import CANNON from "cannon";
 import * as THREE from "three";
-import { COLLISION_GROUPS, productMaterial, _shoppingCartBody, scene, setPhysicObject, world, sugarCounter, productsInCartData, drinksCount, noodelsCheck, sauceCheck, snacksCheck, drinksCheck, taskDone, type ProductData, bodiesToRemove, cartControls, productSelection, setLastClickedObject, setSelectedProduct } from "./useThree"; // NEU: _shoppingCartBody und weitere importieren
-import { gsap } from "gsap";
+import {
+  COLLISION_GROUPS,
+  productMaterial,
+  _shoppingCartBody,
+  scene,
+  setPhysicObject,
+  world,
+  sugarCounter,
+  productsInCartData,
+  drinksCount,
+  noodelsCheck,
+  sauceCheck,
+  snacksCheck,
+  drinksCheck,
+  taskDone,
+  type ProductData,
+  bodiesToRemove,
+  cartControls,
+  productSelection,
+  setLastClickedObject,
+  setSelectedProduct,
+} from "./useThree"; // NEU: _shoppingCartBody und weitere importieren
+import { useShoppingCartStore } from "@/stores/store";
 
 // KORREKTUR: Erweitere den Body-Typ, um die threemesh-Eigenschaft zu erlauben.
 interface ShoppingCartBody extends CANNON.Body {
@@ -12,6 +33,7 @@ export const useAddProductToCart = (
   addedProduct: THREE.Object3D,
   originalObject: THREE.Object3D
 ) => {
+  const shoppingCartStore = useShoppingCartStore();
   // NEU: Pausiere die Wagenverfolgung, sobald das Produkt hinzugefügt wird.
   cartControls.pause();
 
@@ -34,7 +56,9 @@ export const useAddProductToCart = (
 
   if (addedProduct instanceof THREE.Mesh) {
     (addedProduct as THREE.Mesh).geometry.computeBoundingBox();
-    dimensions = (addedProduct as THREE.Mesh).geometry.boundingBox!.getSize(new THREE.Vector3());
+    dimensions = (addedProduct as THREE.Mesh).geometry.boundingBox!.getSize(
+      new THREE.Vector3()
+    );
     boxShape = new CANNON.Box(
       new CANNON.Vec3(
         (dimensions.x * scaleAmount * s) / 2,
@@ -70,10 +94,15 @@ export const useAddProductToCart = (
   // Das Produkt soll mit dem Wagen, dem Boden und anderen Produkten kollidieren.
   boxBody.collisionFilterGroup = COLLISION_GROUPS.PRODUCT; // Es gehört zur Gruppe PRODUKT
   // Es soll kollidieren mit dem EINKAUFSWAGEN, dem BODEN und anderen PRODUKTEN
-  boxBody.collisionFilterMask = COLLISION_GROUPS.SHOPPING_CART | COLLISION_GROUPS.GROUND | COLLISION_GROUPS.PRODUCT;
+  boxBody.collisionFilterMask =
+    COLLISION_GROUPS.SHOPPING_CART |
+    COLLISION_GROUPS.GROUND |
+    COLLISION_GROUPS.PRODUCT;
 
   // KORREKTUR: Positioniere das Objekt direkt über dem Einkaufswagen, damit es hineinfallen kann.
-  const spawnPosition = productSelection.position.clone().add(new THREE.Vector3(0, 0.8, 0));
+  const spawnPosition = productSelection.position
+    .clone()
+    .add(new THREE.Vector3(0, 0.8, 0));
   boxBody.position.copy(spawnPosition as unknown as CANNON.Vec3);
   addedProduct.position.copy(spawnPosition); // Synchronisiere auch die visuelle Position
 
@@ -101,6 +130,8 @@ export const useAddProductToCart = (
   setSelectedProduct(null);
   setLastClickedObject(null);
 
+  shoppingCartStore.addItemToCart(newProduct);
+
   if (newProduct.category === "drinks") {
     drinksCount.value++;
   }
@@ -117,7 +148,7 @@ export const useAddProductToCart = (
   if (newProduct.category === "snacks") {
     snacksCheck.value = true;
   }
-  
+
   if (drinksCount.value >= 3) {
     drinksCheck.value = true;
   }

@@ -6,6 +6,8 @@ import {
   endScreen,
   unloadObjectsByDistance,
 } from "@/composables/useThree";
+
+import { startAnimation } from "@/composables/displayController";
 // Wichtig: GSAP für die Animation importieren
 import { gsap } from "gsap";
 
@@ -30,7 +32,7 @@ export function clickCheckout(event, selectedCheckout) {
 
   mouse.x = 0;
   mouse.y = 0;
-  console.log(selectedCheckout);
+
   cashCounter = selectedCheckout;
   raycaster.setFromCamera(mouse, camera);
   let intersects = raycaster.intersectObjects([selectedCheckout], true);
@@ -66,8 +68,11 @@ export function clickCheckout(event, selectedCheckout) {
       onComplete: () => {
         camera.lookAt(objectPos);
         unloadObjectsByDistance(5);
+        setTimeout(() => {
+          startAnimation();
+        }, 500);
         if (taskDone.value == true) {
-          endScreen.value = true;
+          //endScreen.value = true;
         }
       },
     });
@@ -106,7 +111,7 @@ export function recieptPrint(selectedCheckout) {
     onComplete: () => {
       //camera.lookAt(objectPos);
       if (taskDone.value == true) {
-        endScreen.value = true;
+        //endScreen.value = true;
       }
     },
   });

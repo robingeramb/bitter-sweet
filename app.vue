@@ -1,26 +1,30 @@
 <template>
   <CashRegisterOverlay
-    v-if="!endScreen && faceDisplayRef && variablesStore.showReceiptDone"
+    v-if="
+      faceDisplayRef &&
+      variablesStore.showReceiptDone &&
+      !variablesStore.cashoutFinished
+    "
     :faceDisplayRef="faceDisplayRef"
     @fadeRequested="fadeInFace"
   />
 
   <SugarConsequences
     :sugarValue="90"
-    v-if="!endScreen && faceDisplayRef && variablesStore.cashoutFinished"
+    v-if="faceDisplayRef && variablesStore.cashoutFinished"
     :releaseWarning="true"
     :mouthOpen="variablesStore.mouthOpen"
     @sequence-completed="handleSequenceComplete"
   />
   <!---->
-  <div class="szene" v-if="!endScreen && variablesStore.cashoutStart">
+  <div class="szene" v-if="!endScreen">
     <div class="wrapper">
       <div class="faceConsequences pointer-events-none" ref="faceDisplayRef">
         <ConsequencesFace ref="consequencesFace" />
       </div>
     </div>
   </div>
-  <EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />
+  <!--<EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />-->
 
   <Countdown
     v-if="!endScreen"
