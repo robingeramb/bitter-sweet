@@ -1,30 +1,31 @@
 <template>
-  <CashRegisterOverlay
-    v-if="
-      faceDisplayRef &&
-      variablesStore.showReceiptDone &&
-      !variablesStore.cashoutFinished
-    "
-    :faceDisplayRef="faceDisplayRef"
-    @fadeRequested="fadeInFace"
-  />
+  <div>
+    <CashRegisterOverlay
+      v-if="
+        faceDisplayRef &&
+        variablesStore.showReceiptDone &&
+        !variablesStore.cashoutFinished
+      "
+      :faceDisplayRef="faceDisplayRef"
+      @fadeRequested="fadeInFace"
+    />
 
-  <SugarConsequences
-    :sugarValue="90"
-    v-if="faceDisplayRef && variablesStore.cashoutFinished"
-    :releaseWarning="true"
-    :mouthOpen="variablesStore.mouthOpen"
-    @sequence-completed="handleSequenceComplete"
-  />
-  <!---->
-  <div class="szene" v-if="!endScreen">
-    <div class="wrapper">
-      <div class="faceConsequences pointer-events-none" ref="faceDisplayRef">
-        <ConsequencesFace ref="consequencesFace" />
+    <SugarConsequences
+      :sugarValue="90"
+      v-if="faceDisplayRef && variablesStore.cashoutFinished"
+      :releaseWarning="true"
+      :mouthOpen="variablesStore.mouthOpen"
+      @sequence-completed="handleSequenceComplete"
+    />
+    <!---->
+    <div class="szene" v-if="!endScreen">
+      <div class="wrapper">
+        <div class="faceConsequences pointer-events-none" ref="faceDisplayRef">
+          <ConsequencesFace ref="consequencesFace" />
+        </div>
       </div>
     </div>
-  </div>
-  <!--<EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />-->
+    <!--<EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />-->
 
     <Countdown
       v-if="!endScreen"
@@ -42,11 +43,8 @@
       :faceDisplay="faceDisplayRef"
     />
 
-  <Story v-if="variablesStore.showInnerBody"/>
-  
-</div>
-
-
+    <Story v-if="variablesStore.showInnerBody" />
+  </div>
 </template>
 
 <script setup lang="ts">

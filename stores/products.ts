@@ -160,13 +160,13 @@ export const useProductsStore = defineStore({
         meshMode: false,
         amountPerPortion: 166,
         category: "sauces",
-        rotation: Math.PI
+        rotation: Math.PI,
       },
       tomatosauce: {
         sugarAmount: 23.6,
         productName: "Tomato Sauce Basilico",
         scale: 0.2,
-        rotation: Math.PI/2,
+        rotation: Math.PI / 2,
         model: "sauce_basilico.glb",
         meshMode: false,
         amount: 400,
@@ -177,7 +177,7 @@ export const useProductsStore = defineStore({
         sugarAmount: 20,
         productName: "Tomato Sauce Bolognese",
         scale: 0.2,
-        rotation: Math.PI/2,
+        rotation: Math.PI / 2,
         model: "sauce_bolognese.glb",
         meshMode: false,
         amount: 400,
@@ -188,7 +188,7 @@ export const useProductsStore = defineStore({
         sugarAmount: 17.6,
         productName: "Pesto Alla Genovese",
         scale: 0.2,
-        rotation: Math.PI/2,
+        rotation: Math.PI / 2,
         model: "sauce_pesto.glb",
         meshMode: false,
         amount: 400,
@@ -264,8 +264,7 @@ export const useProductsStore = defineStore({
         amount: 400,
         amountPerPortion: 50,
         category: "sauces",
-      }
-
+      },
     },
     shelves: [
       {
