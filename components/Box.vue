@@ -29,6 +29,7 @@ import {
   COLLISION_GROUPS, // NEU: Kollisionsgruppen importieren
 } from "@/composables/useThree"; // NEU: Zentrales Material importieren
 import { shelves } from "@/composables/createShelves";
+import { createCannonDebugger } from "@/composables/cannonDebugger";
 import { useFirstPersonControls } from "@/composables/useFirstPersonControls";
 import {
   initDisplayController,
@@ -70,6 +71,7 @@ let shoppingCartBody: CANNON.Body | null = null; // NEU: Physik-Körper für den
 let supermarketSound: HTMLAudioElement | null = null; // NEU: Hintergrundsound
 let shoppingCartSound: HTMLAudioElement | null = null; // NEU: Einkaufswagen-Sound
 let grabSound: HTMLAudioElement | null = null; // NEU: Grab-Sound
+let shoppingCartDebugMesh: THREE.Object3D | null = null;
 
 const fixedTimeStep = 1 / 60; // Fester, empfohlener Timestep für die Physik
 
@@ -372,6 +374,9 @@ async function setupShoppingCart(shoplight: any): Promise<void> {
     shoppingCartBody.allowSleep = false; // KORREKTUR: Verhindert, dass der Einkaufswagen einschläft und Kollisionen verpasst.
     useShoppingCartBody(shoppingCartBody); // KORREKTUR: Verwende die Setter-Funktion, um den Körper global verfügbar zu machen.
     (shoppingCartBody as any).threemesh = shoppingCart; // FIX: Verknüpfe den Physik-Körper mit dem 3D-Modell.
+
+    // NEU: Debugger für den Einkaufswagen aktivieren
+    shoppingCartDebugMesh = createCannonDebugger(scene, shoppingCartBody);
     world.addBody(shoppingCartBody);
   }
 }
@@ -575,6 +580,16 @@ function renderLoop(): void {
     shoppingCart.quaternion.copy(
       shoppingCartBody.quaternion as unknown as THREE.Quaternion
     );
+
+    // NEU: Debugger-Mesh mit der Physik synchronisieren
+    if (shoppingCartDebugMesh) {
+      shoppingCartDebugMesh.position.copy(
+        shoppingCartBody.position as unknown as THREE.Vector3
+      );
+      shoppingCartDebugMesh.quaternion.copy(
+        shoppingCartBody.quaternion as unknown as THREE.Quaternion
+      );
+    }
 
     // Drop-Zone für Produkte mitbewegen
     productSelection.position.copy(shoppingCart.position);

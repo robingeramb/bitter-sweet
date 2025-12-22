@@ -36,6 +36,9 @@ export function clickCheckout(event, selectedCheckout) {
   }
   const variablesStore = useVariablesStore();
 
+  // NEU: Die Kasse ist nur anklickbar, wenn der Einkauf erledigt ist.
+  if (!variablesStore.shoppingDone) return;
+
   mouse.x = 0;
   mouse.y = 0;
 

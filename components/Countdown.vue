@@ -171,6 +171,21 @@
         <div class="handwritten text-sm text-black">Snacks</div>
       </div>
     </div>
+
+    <!-- Checkout Hint -->
+    <div
+      v-if="
+        variablesStore.shoppingDone &&
+        !variablesStore.cashoutStart &&
+        !gameOver &&
+        !endScreen
+      "
+      class="fixed top-20 left-1/2 -translate-x-1/2 pointer-events-none"
+    >
+      <div class="bg-gray-900 bg-opacity-50 text-white px-5 py-2 rounded-full text-sm font-medium animate-subtle-bounce">
+        Go to checkout and click to pay
+      </div>
+    </div>
   </div>
 </template>
 
@@ -261,6 +276,16 @@ watch(videoFinishedOnce, (finished) => {
     tryFinishLoading();
   }
 });
+
+// NEU: Überwache die Checkliste und aktualisiere den Store, wenn alles erledigt ist
+watch(
+  [noodelsCheck, sauceCheck, drinksCheck, snacksCheck],
+  ([noodels, sauce, drinks, snacks]) => {
+    if (noodels && sauce && drinks && snacks) {
+      variablesStore.updateShoppingDone(true);
+    }
+  }
+);
 
 watch(
   loadingProgress,
@@ -363,5 +388,14 @@ body {
   mask-image: radial-gradient(ellipse at center, transparent 30%, black 80%);
   pointer-events: none;
   z-index: 1;
+}
+
+.animate-subtle-bounce {
+  animation: subtle-bounce 1s infinite;
+}
+
+@keyframes subtle-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 </style>

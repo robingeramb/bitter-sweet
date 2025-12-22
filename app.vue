@@ -44,7 +44,10 @@
       :faceDisplay="faceDisplayRef"
     />
 
-    <Story v-if="variablesStore.showInnerBody" />
+    <Story
+      v-if="variablesStore.showInnerBody"
+      :sugarAmount="cartStore.getSugarScore() / 3"
+    />
   </div>
 </template>
 
