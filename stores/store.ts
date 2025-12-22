@@ -43,6 +43,7 @@ export const useVariablesStore = defineStore("variables", () => {
   const cashoutFinished = ref(false);
   const showInnerBody = ref(false);
   const showTeeth = ref(false);
+  const shoppingDone = ref(false);
 
   // 2. Die Aktion/Mutation (Action)
   function updatePlayerMotion(newValue: boolean) {
@@ -76,6 +77,10 @@ export const useVariablesStore = defineStore("variables", () => {
     }
   }
 
+  function updateShoppingDone(newValue: boolean) {
+    shoppingDone.value = newValue;
+  }
+
   // Was die Store-Instanz nach außen gibt
   return {
     cursorFree,
@@ -93,5 +98,7 @@ export const useVariablesStore = defineStore("variables", () => {
     updateShowInnerBody,
     showTeeth,
     updateShowTeeth,
+    shoppingDone,
+    updateShoppingDone,
   };
 });

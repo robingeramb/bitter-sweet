@@ -1,4 +1,5 @@
 <template>
+  <div>
   <CashRegisterOverlay
     v-if="
       faceDisplayRef &&
@@ -42,7 +43,7 @@
       :faceDisplay="faceDisplayRef"
     />
 
-  <Story v-if="variablesStore.showInnerBody"/>
+  <Story v-if="variablesStore.showInnerBody" :sugarAmount="cartStore.getSugarScore()/3" />
   
 </div>
 
@@ -51,8 +52,10 @@
 
 <script setup lang="ts">
 import { useVariablesStore } from "~/stores/store";
+import { useShoppingCartStore } from "~/stores/store";
 import gsap from "gsap";
 const variablesStore = useVariablesStore();
+const cartStore = useShoppingCartStore();
 
 const countdown = ref();
 
