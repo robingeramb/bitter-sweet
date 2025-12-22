@@ -305,12 +305,7 @@ const startCountdown = () => {
   }
 
   interval = setInterval(() => {
-    if (time.value > 0) {
-      time.value -= 1;
-    } else {
-      clearInterval(interval);
-      gameOver.value = true;
-    }
+    time.value -= 1; // Zählt jetzt einfach immer weiter runter (auch ins Minus)
   }, 1000);
 };
 
@@ -323,11 +318,12 @@ const restart = () => {
 };
 
 const formattedTime = computed(() => {
-  const minutes = Math.floor(time.value / 60)
+  const absTime = Math.abs(time.value);
+  const minutes = Math.floor(absTime / 60)
     .toString()
     .padStart(2, "0");
-  const seconds = (time.value % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
+  const seconds = (absTime % 60).toString().padStart(2, "0");
+  return `${time.value < 0 ? '-' : ''}${minutes}:${seconds}`;
 });
 
 defineExpose({ restart });

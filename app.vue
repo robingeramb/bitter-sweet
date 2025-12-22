@@ -17,7 +17,6 @@
     :mouthOpen="variablesStore.mouthOpen"
     @sequence-completed="handleSequenceComplete"
   />
-  <!---->
   <div class="szene" v-if="!endScreen">
     <div class="wrapper">
       <div class="faceConsequences pointer-events-none" ref="faceDisplayRef">
@@ -25,8 +24,6 @@
       </div>
     </div>
   </div>
-  <!--<EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />-->
-
     <Countdown
       v-if="!endScreen"
       ref="countdown"
@@ -42,8 +39,8 @@
       :scrollVal="scrollValue"
       :faceDisplay="faceDisplayRef"
     />
-
-  <Story v-if="variablesStore.showInnerBody" :sugarAmount="cartStore.getSugarScore()/3" />
+  <!-- :sugarAmount="cartStore.getSugarScore()/3" -->
+  <Story v-if="variablesStore.showInnerBody"  :isSecondPlaythrough="true" :sugarAmount="cartStore.getSugarScore()/3" />
   
 </div>
 
