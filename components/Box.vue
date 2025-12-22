@@ -559,7 +559,11 @@ function renderLoop(): void {
       shoppingCartBody.wakeUp();
 
       // NEU: Sound abspielen, wenn der Wagen sich bewegt
-      if (shoppingCartSound && shoppingCartSound.paused && !variablesStore.showInnerBody) {
+      if (
+        shoppingCartSound &&
+        shoppingCartSound.paused &&
+        !variablesStore.showInnerBody
+      ) {
         shoppingCartSound.play().catch(() => {});
       }
     } else {
@@ -794,7 +798,8 @@ onMounted(() => {
       supermarketSound.play().catch(() => {
         // Fallback für Autoplay-Blocker: Starten bei erster Interaktion
         const startAudio = () => {
-          if (!variablesStore.showInnerBody && supermarketSound) supermarketSound.play();
+          if (!variablesStore.showInnerBody && supermarketSound)
+            supermarketSound.play();
           window.removeEventListener("click", startAudio);
           window.removeEventListener("keydown", startAudio);
         };
@@ -882,8 +887,8 @@ defineExpose({
     <Cursor
       :mousePos="mousePos"
       :clickable="clickable"
-      v-if="clockStart"
-      class="cursor-none pointer-events-none"
+      v-if="variablesStore.cursorFree || productView"
+      class="cursor-none pointer-events-none z-100"
     />
     <!-- NEU: Fadenkreuz für den FPV-Modus -->
     <div v-if="!productView" class="crosshair"></div>

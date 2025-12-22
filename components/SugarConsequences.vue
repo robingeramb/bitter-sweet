@@ -11,30 +11,39 @@
       <div :key="currentStep" v-if="stage === 'intro'">
         <h1>
           <span
-            v-for="(word, index) in getWords('Open your mouth and face what sugar’s done.')"
+            v-for="(word, index) in getWords(
+              'Open your mouth and face what sugar’s done.'
+            )"
             :key="index"
             class="word"
             :style="{ animationDelay: `${index * currentWordDelay}s` }"
-          >{{ word }}&nbsp;</span>
+            >{{ word }}&nbsp;</span
+          >
         </h1>
       </div>
 
       <h1 v-else-if="setBack" :key="'warning'">
         <span
-          v-for="(word, index) in getWords('Open your mouth to see the consequences inside.')"
+          v-for="(word, index) in getWords(
+            'Open your mouth to see the consequences inside.'
+          )"
           :key="index"
           class="word"
           :style="{ animationDelay: `${index * currentWordDelay}s` }"
-        >{{ word }}&nbsp;</span>
+          >{{ word }}&nbsp;</span
+        >
       </h1>
 
       <h1 v-else-if="stage === 'waiting' && showReminder" :key="'remind'">
         <span
-          v-for="(word, index) in getWords('I know it\'s easier to ignore it. But that\'s not the way to go. Open up.')"
+          v-for="(word, index) in getWords(
+            'I know it\'s easier to ignore it. But that\'s not the way to go. Open up.'
+          )"
           :key="index"
           class="word"
           :style="{ animationDelay: `${index * currentWordDelay}s` }"
-        >{{ word }}&nbsp;</span>
+          >{{ word }}&nbsp;</span
+        >
       </h1>
 
       <h2
@@ -46,7 +55,8 @@
           :key="index"
           class="word"
           :style="{ animationDelay: `${index * currentWordDelay}s` }"
-        >{{ word }}&nbsp;</span>
+          >{{ word }}&nbsp;</span
+        >
       </h2>
     </transition>
   </div>
@@ -61,6 +71,7 @@ let threeJSManager: ThreeJSManager | null = null;
 // **NEU: Definiere das Event, das an den Parent gesendet wird**
 const emit = defineEmits<{
   (e: "sequenceCompleted"): void;
+  (e: "animateTeeth"): void;
 }>();
 
 interface Props {
@@ -132,6 +143,7 @@ const currentWordDelay = ref(0.05);
 let mainTimer: ReturnType<typeof setTimeout> | null = null;
 let reminderTimer: ReturnType<typeof setTimeout> | null = null;
 let mouthHoldTimer: ReturnType<typeof setTimeout> | null = null;
+let teethAnimated = false;
 
 /* ---------------- COMPUTED ---------------- */
 
@@ -160,7 +172,7 @@ function playAudio(source: string | HTMLAudioElement): Promise<void> {
   stopAudio();
   return new Promise((resolve) => {
     let audio: HTMLAudioElement;
-    if (typeof source === 'string') {
+    if (typeof source === "string") {
       audio = new Audio(`/voices/${source}.mp3`);
       // Fallback delay if not prepared
       currentWordDelay.value = 0.05;
@@ -173,7 +185,11 @@ function playAudio(source: string | HTMLAudioElement): Promise<void> {
       resolve();
     };
     audio.onerror = () => {
-      console.warn(`Audio ${typeof source === 'string' ? source : audio.src} not found or error.`);
+      console.warn(
+        `Audio ${
+          typeof source === "string" ? source : audio.src
+        } not found or error.`
+      );
       currentAudio.value = null;
       resolve(); // Trotzdem fortfahren, damit der Text nicht hängen bleibt
     };
@@ -181,7 +197,10 @@ function playAudio(source: string | HTMLAudioElement): Promise<void> {
   });
 }
 
-async function prepareAudio(filename: string, text: string): Promise<HTMLAudioElement> {
+async function prepareAudio(
+  filename: string,
+  text: string
+): Promise<HTMLAudioElement> {
   const audio = new Audio(`/voices/${filename}.mp3`);
   await new Promise<void>((resolve) => {
     audio.onloadedmetadata = () => resolve();
@@ -193,11 +212,11 @@ async function prepareAudio(filename: string, text: string): Promise<HTMLAudioEl
   if (audio.duration && Number.isFinite(audio.duration)) {
     const wordCount = getWords(text).length;
     if (wordCount > 1) {
-       // Text soll etwas schneller sein als Audio (z.B. 90% der Dauer)
-       const calculatedDelay = (audio.duration * 0.9 - 0.5) / (wordCount - 1);
-       currentWordDelay.value = Math.max(0.05, calculatedDelay);
+      // Text soll etwas schneller sein als Audio (z.B. 90% der Dauer)
+      const calculatedDelay = (audio.duration * 0.9 - 0.5) / (wordCount - 1);
+      currentWordDelay.value = Math.max(0.05, calculatedDelay);
     } else {
-       currentWordDelay.value = 0.5;
+      currentWordDelay.value = 0.5;
     }
   } else {
     currentWordDelay.value = 0.05;
@@ -220,10 +239,10 @@ function stopAllTimers() {
 // 1. Intro-Ablauf
 async function runIntro() {
   stopAllTimers();
-  
+
   const text = "Open your mouth and face what sugar’s done.";
   const audio = await prepareAudio("kasse_intro", text);
-  
+
   stage.value = "intro";
 
   await playAudio(audio);
@@ -243,8 +262,9 @@ async function runIntro() {
   // Start 5s timer for reminder
   reminderTimer = setTimeout(() => {
     if (stage.value === "waiting") {
-      const remindText = "I know it's easier to ignore it. But that's not the way to go. Open up.";
-      prepareAudio("kasse_warning", remindText).then(audio => {
+      const remindText =
+        "I know it's easier to ignore it. But that's not the way to go. Open up.";
+      prepareAudio("kasse_warning", remindText).then((audio) => {
         showReminder.value = true;
         playAudio(audio);
       });
@@ -264,7 +284,11 @@ function startInfoSequence(startIndex: number = 0) {
 
   // Bestimme das Level für die Dateinamen
   const level = SUGAR_LEVELS.find((l) => props.sugarValue <= l.max);
-  const maxVal = level ? (level.max === Infinity ? 'Infinity' : level.max) : '25';
+  const maxVal = level
+    ? level.max === Infinity
+      ? "Infinity"
+      : level.max
+    : "25";
 
   // Ablauf der Schritte:
   async function runStep(step: number) {
@@ -275,11 +299,14 @@ function startInfoSequence(startIndex: number = 0) {
       infoStep.value = -1; // Leert den Text
 
       // Kurze Pause für Fade-Out
-      await new Promise(resolve => setTimeout(resolve, FADE_OUT_DURATION + 50));
-      
-      const finalText = "So, now we take a deep dive into your body to see the other consequences";
+      await new Promise((resolve) =>
+        setTimeout(resolve, FADE_OUT_DURATION + 50)
+      );
+
+      const finalText =
+        "So, now we take a deep dive into your body to see the other consequences";
       const audio = await prepareAudio("kasse_final", finalText);
-      
+
       stage.value = "final";
 
       await playAudio(audio);
@@ -288,7 +315,6 @@ function startInfoSequence(startIndex: number = 0) {
 
       // Sequenz vorbei -> Check Mundstatus
       checkCompletion();
-
     } else {
       // Audio vorbereiten
       const filename = `kasse_max${maxVal}_${step + 1}`;
@@ -304,7 +330,7 @@ function startInfoSequence(startIndex: number = 0) {
 
       await playAudio(audio);
 
-      if (stage.value !== 'info') return; // Sicherheitscheck
+      if (stage.value !== "info") return; // Sicherheitscheck
 
       runStep(step + 1);
     }
@@ -320,11 +346,11 @@ function checkCompletion() {
     finishSequence();
   } else {
     const text = "Open your mouth to see the consequences inside.";
-    prepareAudio("kasse_ende", text).then(audio => {
-        setBack.value = true;
-        setTimeout(() => {
-          playAudio(audio);
-        }, TRANSITION_DURATION);
+    prepareAudio("kasse_ende", text).then((audio) => {
+      setBack.value = true;
+      setTimeout(() => {
+        playAudio(audio);
+      }, TRANSITION_DURATION);
     });
   }
 }
@@ -344,6 +370,11 @@ function finishSequence() {
 watch(
   () => props.mouthOpen,
   (isOpen) => {
+    if (props.sugarValue > 50 && teethAnimated === false && isOpen) {
+      emit("animateTeeth");
+      console.log("Teeth animation triggered.SugarCOnsequences");
+      teethAnimated = true;
+    }
     // 1. Waiting Phase: Mund muss 1 Sekunde offen bleiben
     if (stage.value === "waiting") {
       if (isOpen) {
@@ -451,8 +482,14 @@ h2 {
 }
 
 @keyframes wordFadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .background-wrapper {
@@ -471,7 +508,11 @@ h2 {
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.8) 100%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0) 40%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
 }
 
 .blur-vignette {

@@ -155,7 +155,7 @@ export const clockStart = ref(false);
 export const shouldUpdatePhysics = ref(false);
 export let _composer: EffectComposer;
 export let _outlinePass: OutlinePass;
-export const camera = new THREE.PerspectiveCamera(50, 200 / 200, 0.1, 30);
+export const camera = new THREE.PerspectiveCamera(50, 200 / 200, 0.001, 30);
 markRaw(camera); // KORREKTUR: Verhindert, dass Vue die Kamera reaktiv macht und den Proxy-Fehler auslöst.
 export const productSelection = new THREE.Group();
 markRaw(productSelection); // KORREKTUR: Verhindert, dass die Gruppe reaktiv wird.

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { useVariablesStore } from "~/stores/store";
+import { useShoppingCartStore } from "~/stores/store";
 import {
   camera,
   taskDone,
@@ -12,7 +13,8 @@ import { startAnimation } from "@/composables/displayController";
 import { gsap } from "gsap";
 
 // NEU: Sound für die Kamerafahrt
-const whooshSound = typeof Audio !== "undefined" ? new Audio("/sound/whoosh.mp3") : null;
+const whooshSound =
+  typeof Audio !== "undefined" ? new Audio("/sound/whoosh.mp3") : null;
 if (whooshSound) whooshSound.volume = 0.5;
 
 let clickedObject;
@@ -94,6 +96,7 @@ export function clickCheckout(event, selectedCheckout) {
 
 export function recieptPrint(selectedCheckout) {
   const variablesStore = useVariablesStore();
+  const shoppingCartStore = useShoppingCartStore();
   mouse.x = 0;
   mouse.y = 0;
 
@@ -117,15 +120,24 @@ export function recieptPrint(selectedCheckout) {
     z: targetZ,
     duration: 1.8, // Dauer der Kamerabewegung in Sekunden
     ease: "power2.inOut", // Sanfter Start und Ende
-    onUpdate: () => {
-      // Die Kamera soll während der gesamten Bewegung kontinuierlich auf das Objekt blicken.
-      //camera.lookAt(objectPos);
-    },
     onComplete: () => {
-      //camera.lookAt(objectPos);
-      if (taskDone.value == true) {
-        //endScreen.value = true;
-      }
+      const zoom = 1.21;
+      const targetX2 =
+        objectPos.x +
+        (RECEIPT_CAMERA_DISTANCE_OFFSET / zoom) * Math.cos(angleRad);
+      const targetZ2 =
+        objectPos.z +
+        (RECEIPT_CAMERA_DISTANCE_OFFSET / zoom) * Math.sin(angleRad);
+      const targetY2 = objectPos.y + RECEIPT_CAMERA_DISTANCE_OFFSET / zoom / 2;
+      const dur = shoppingCartStore.itemsInCart.length * 0.3 + 4;
+      gsap.to(camera.position, {
+        x: targetX2,
+        y: targetY2,
+        z: targetZ2,
+        duration: dur,
+        delay: 1.9,
+        ease: "power1.inOut", // Dauer der Kamerabewegung in Sekunden
+      });
     },
   });
 }

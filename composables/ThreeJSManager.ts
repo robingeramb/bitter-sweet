@@ -18,6 +18,7 @@ export class ThreeJSManager {
   private blendingState: BlendingState;
   private currentZoomLevel: number = 1.0;
   private frustumSize: number = 10;
+  private time = 4;
   private textureLoader = new THREE.TextureLoader();
   private isWarmedUp: boolean = false;
 
@@ -59,8 +60,8 @@ export class ThreeJSManager {
       blendUniform: { value: 0.0 },
       rottenBaseColorMap: null,
       isAnimating: false,
-      animationStartTime: null,
-      animationDuration: 4000,
+      animationStartTime: 0,
+      animationDuration: 4000, // ms
       startRoughness: 0.5,
       endRoughness: 0.8,
       startColor: new THREE.Color(),
@@ -72,7 +73,7 @@ export class ThreeJSManager {
     this.initLights();
     this.initCamera();
     this.elements.scene.add(this.elements.pivot);
-    this.animate(0);
+    this.animate();
   }
 
   private initRenderer() {
@@ -205,16 +206,35 @@ export class ThreeJSManager {
     return this.elements;
   }
 
-  private animate = (time: number) => {
+  public startAnimation(material?: THREE.MeshStandardMaterial) {
+    const state = this.blendingState;
+
+    if (material) {
+      state.targetMaterial = material;
+      state.startRoughness = material.roughness;
+      state.startColor.copy(material.color);
+    }
+
+    state.blendUniform.value = 0;
+    state.animationStartTime = performance.now();
+    state.isAnimating = true;
+  }
+
+  private animate = () => {
     requestAnimationFrame(this.animate);
 
-    if (this.blendingState.isAnimating && this.blendingState.targetMaterial) {
-      const state = this.blendingState;
-      const elapsedTime = time - state.animationStartTime!;
-      let t = Math.min(elapsedTime / state.animationDuration, 1.0);
-      t = t * t * (3.0 - 2.0 * t); // Smoothstep
+    const state = this.blendingState;
+
+    if (state.isAnimating && state.targetMaterial) {
+      const now = performance.now();
+      const elapsed = now - state.animationStartTime;
+
+      let t = Math.min(elapsed / state.animationDuration, 1);
+      // Smoothstep
+      t = t * t * (3 - 2 * t);
 
       state.blendUniform.value = t;
+
       const material = state.targetMaterial;
       material.roughness = THREE.MathUtils.lerp(
         state.startRoughness,
@@ -223,7 +243,9 @@ export class ThreeJSManager {
       );
       material.color.lerpColors(state.startColor, state.endColor, t);
 
-      if (t >= 1.0) state.isAnimating = false;
+      if (t >= 1) {
+        state.isAnimating = false;
+      }
     }
 
     this.elements.renderer.render(this.elements.scene, this.elements.camera);

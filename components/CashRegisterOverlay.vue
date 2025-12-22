@@ -16,7 +16,6 @@ import { useVariablesStore } from "@/stores/store";
 import { ref } from "vue";
 const variablesStore = useVariablesStore();
 
-
 interface Props {
   faceDisplayRef: any;
 }
@@ -52,11 +51,10 @@ function cameraTurn() {
     duration: 1.8,
     ease: "power2.inOut",
     onComplete: () => {
-      if (taskDone.value)
-        //endScreen.value = true;
-        setTimeout(() => {
-          variablesStore.updateCashoutFinished(true);
-        }, 900);
+      //endScreen.value = true;
+      setTimeout(() => {
+        variablesStore.updateCashoutFinished(true);
+      }, 900);
     },
   });
 }

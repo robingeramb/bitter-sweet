@@ -1,29 +1,33 @@
 <template>
   <div>
-  <CashRegisterOverlay
-    v-if="
-      faceDisplayRef &&
-      variablesStore.showReceiptDone &&
-      !variablesStore.cashoutFinished
-    "
-    :faceDisplayRef="faceDisplayRef"
-    @fadeRequested="fadeInFace"
-  />
+    <CashRegisterOverlay
+      v-if="
+        faceDisplayRef &&
+        variablesStore.showReceiptDone &&
+        !variablesStore.cashoutFinished
+      "
+      :faceDisplayRef="faceDisplayRef"
+      @fadeRequested="fadeInFace"
+    />
 
-  <SugarConsequences
-    :sugarValue="90"
-    v-if="faceDisplayRef && variablesStore.cashoutFinished"
-    :releaseWarning="true"
-    :mouthOpen="variablesStore.mouthOpen"
-    @sequence-completed="handleSequenceComplete"
-  />
-  <div class="szene" v-if="!endScreen">
-    <div class="wrapper">
-      <div class="faceConsequences pointer-events-none" ref="faceDisplayRef">
-        <ConsequencesFace ref="consequencesFace" />
+    <SugarConsequences
+      :sugarValue="shoppingCartStore.getSugarScore()"
+      v-if="faceDisplayRef && variablesStore.cashoutFinished"
+      :releaseWarning="true"
+      :mouthOpen="variablesStore.mouthOpen"
+      @sequenceCompleted="handleSequenceComplete"
+      @animateTeeth="animateTeeth"
+    />
+    <!---->
+    <div class="szene" v-if="!endScreen">
+      <div class="wrapper">
+        <div class="faceConsequences pointer-events-none" ref="faceDisplayRef">
+          <ConsequencesFace ref="consequencesFace" />
+        </div>
       </div>
     </div>
-  </div>
+    <!--<EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />-->
+
     <Countdown
       v-if="!endScreen"
       ref="countdown"
@@ -39,20 +43,19 @@
       :scrollVal="scrollValue"
       :faceDisplay="faceDisplayRef"
     />
-  <!-- :sugarAmount="cartStore.getSugarScore()/3" -->
-  <Story v-if="variablesStore.showInnerBody"  :isSecondPlaythrough="true" :sugarAmount="cartStore.getSugarScore()/3" />
-  
-</div>
 
-
+    <Story
+      v-if="variablesStore.showInnerBody"
+      :sugarAmount="shoppingCartStore.getSugarScore() / 3"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { useVariablesStore } from "~/stores/store";
-import { useShoppingCartStore } from "~/stores/store";
+import { useVariablesStore, useShoppingCartStore } from "~/stores/store";
 import gsap from "gsap";
 const variablesStore = useVariablesStore();
-const cartStore = useShoppingCartStore();
+const shoppingCartStore = useShoppingCartStore();
 
 const countdown = ref();
 
@@ -113,6 +116,13 @@ const handleSequenceComplete = () => {
 function startZoom(i: number, t: number) {
   if (consequencesFace.value) {
     consequencesFace.value.startZoom(i, t);
+  }
+}
+
+function animateTeeth() {
+  console.log("Teeth animation triggered. app.vue");
+  if (consequencesFace.value) {
+    consequencesFace.value.animateTeeth();
   }
 }
 
