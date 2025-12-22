@@ -62,6 +62,13 @@ function zoomIn(i: number, t: number, vector: any) {
   arController?.zoom(i, t, vector);
 }
 
+function animateTeeth() {
+  if (threeJSManager) {
+    console.log("animateTeeth aufgerufen WebcamScene");
+    threeJSManager.startAnimation();
+  }
+}
+
 onMounted(async () => {
   await nextTick();
   const video = videoEl.value!;
@@ -140,7 +147,7 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect();
 });
 
-defineExpose({ zoomIn });
+defineExpose({ zoomIn, animateTeeth });
 </script>
 
 <style scoped>

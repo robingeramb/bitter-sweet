@@ -2,6 +2,7 @@ import * as THREE from "three";
 import gsap from "gsap";
 import { useVariablesStore } from "~/stores/store";
 import { useShoppingCartStore } from "~/stores/store";
+import { camera } from "@/composables/useThree";
 
 let receiptData = {
   headline: "Receipt",
@@ -12,7 +13,8 @@ export let receipt: THREE.Mesh;
 let l = 0;
 
 // NEU: Sound für den Kassenbon
-const receiptSound = typeof Audio !== "undefined" ? new Audio("/sound/receipt.mp3") : null;
+const receiptSound =
+  typeof Audio !== "undefined" ? new Audio("/sound/receipt.mp3") : null;
 if (receiptSound) receiptSound.volume = 0.5;
 
 /**
@@ -41,14 +43,18 @@ export function animateReceipt() {
   // Ziel: Länge + ein kleines Stück extra, damit er am Ende locker hängt
   const targetDist = l;
 
+  const dur = receiptData.items.length * 0.3 + 3; // Dauer basierend auf Anzahl Items
+
   gsap.to(config, {
     progress: targetDist,
-    duration: 3,
+    duration: dur,
     ease: "power2.inOut", // Fängt sanft an, wird schneller, bremst sanft
     onComplete: () => {
       const variablesStore = useVariablesStore();
       document.exitPointerLock();
-      variablesStore.updateShowReceiptDone(true);
+      setTimeout(() => {
+        variablesStore.updateShowReceiptDone(true);
+      }, 4000);
     },
     onUpdate: () => {
       for (let i = 0; i < posAttribute.count; i++) {

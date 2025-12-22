@@ -38,6 +38,11 @@ setTimeout(() => {
   faceDisplayComponent.value?.freezeFrame();
 }, 1000);
 
+function animateTeeth() {
+  console.log("animateTeeth aufgerufen ConsequencesFace");
+  webcamScene.value?.animateTeeth();
+}
+
 async function startZoom(i: number, t: number) {
   // 1. Zuerst das Einfrieren und die Mundposition abrufen
   const mouthCenter = await faceDisplayComponent.value?.freezeFrame();
@@ -84,6 +89,7 @@ onMounted(() => {
 
 defineExpose({
   startZoom,
+  animateTeeth,
   // Optional: Sie könnten auch 'message' exposen, wenn Sie es lesen wollen
   // message
 });

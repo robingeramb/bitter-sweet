@@ -11,11 +11,12 @@
     />
 
     <SugarConsequences
-      :sugarValue="90"
+      :sugarValue="shoppingCartStore.getSugarScore()"
       v-if="faceDisplayRef && variablesStore.cashoutFinished"
       :releaseWarning="true"
       :mouthOpen="variablesStore.mouthOpen"
-      @sequence-completed="handleSequenceComplete"
+      @sequenceCompleted="handleSequenceComplete"
+      @animateTeeth="animateTeeth"
     />
     <!---->
     <div class="szene" v-if="!endScreen">
@@ -48,9 +49,10 @@
 </template>
 
 <script setup lang="ts">
-import { useVariablesStore } from "~/stores/store";
+import { useVariablesStore, useShoppingCartStore } from "~/stores/store";
 import gsap from "gsap";
 const variablesStore = useVariablesStore();
+const shoppingCartStore = useShoppingCartStore();
 
 const countdown = ref();
 
@@ -111,6 +113,13 @@ const handleSequenceComplete = () => {
 function startZoom(i: number, t: number) {
   if (consequencesFace.value) {
     consequencesFace.value.startZoom(i, t);
+  }
+}
+
+function animateTeeth() {
+  console.log("Teeth animation triggered. app.vue");
+  if (consequencesFace.value) {
+    consequencesFace.value.animateTeeth();
   }
 }
 

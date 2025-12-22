@@ -39,8 +39,6 @@ export const useAddProductToCart = (
 
   const newProduct = originalObject.userData as ProductData;
   // Schritt 1: Logik zum Hinzufügen zum Warenkorb (Zucker zählen, etc.)
-  sugarCounter.value += newProduct.sugarAmount;
-  productsInCartData.push(newProduct);
 
   // Schritt 2: Das Originalobjekt aus dem Regal endgültig aus der Szene löschen.
   // Dies ist der einzige Ort, an dem das Original gelöscht wird.
