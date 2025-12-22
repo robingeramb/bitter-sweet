@@ -46,7 +46,7 @@
 
     <Story
       v-if="variablesStore.showInnerBody"
-      :sugarAmount="cartStore.getSugarScore() / 3"
+      :sugarAmount="shoppingCartStore.getSugarScore() / 3"
     />
   </div>
 </template>
