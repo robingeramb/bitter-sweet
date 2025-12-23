@@ -19,6 +19,8 @@ import {
   bodiesToRemove,
   cartControls,
   productSelection,
+  setShoppingCartObjects,
+  productSelectionCannonBodies,
   setLastClickedObject,
   setSelectedProduct,
 } from "./useThree"; // NEU: _shoppingCartBody und weitere importieren
@@ -98,10 +100,18 @@ export const useAddProductToCart = (
     COLLISION_GROUPS.PRODUCT;
 
   // KORREKTUR: Positioniere das Objekt direkt über dem Einkaufswagen, damit es hineinfallen kann.
+
+  const random = Math.random() * 0.12 - 0.06; // Zufällige Verschiebung für mehr Natürlichkeit
+  console.log(random);
   const spawnPosition = productSelection.position
     .clone()
-    .add(new THREE.Vector3(0, 0.8, 0));
-  boxBody.position.copy(spawnPosition as unknown as CANNON.Vec3);
+    .add(new THREE.Vector3(0 + random, 0.8, 0 + random));
+
+  const cannonSpawnPosition = productSelectionCannonBodies.position
+    .clone()
+    .add(new THREE.Vector3(0 + random, 0.8, 0 + random));
+
+  boxBody.position.copy(cannonSpawnPosition as unknown as CANNON.Vec3);
   addedProduct.position.copy(spawnPosition); // Synchronisiere auch die visuelle Position
 
   // --- NEUE LOGIK: Produkt beim ersten Kontakt an den Wagen "kleben" ---
@@ -116,10 +126,10 @@ export const useAddProductToCart = (
 
   boxBody.addEventListener("collide", onCollide);
   world.addBody(boxBody);
-  setPhysicObject(addedProduct, boxBody);
+  setShoppingCartObjects(addedProduct, boxBody);
   // KORREKTUR: Füge das physische Produkt direkt zur Szene hinzu, nicht zur Einkaufswagen-Gruppe.
   // Dadurch werden seine Weltkoordinaten korrekt von der Physik-Engine gesteuert.
-  scene.add(addedProduct);
+  productSelection.add(addedProduct);
 
   // Aufgabe erfüllt
 

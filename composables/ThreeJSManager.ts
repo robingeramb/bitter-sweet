@@ -18,9 +18,11 @@ export class ThreeJSManager {
   private blendingState: BlendingState;
   private currentZoomLevel: number = 1.0;
   private frustumSize: number = 10;
-  private time = 4;
   private textureLoader = new THREE.TextureLoader();
   private isWarmedUp: boolean = false;
+
+  // NEU: Diese Variable hält die Kamera, die aktuell gerendert wird
+  private activeCamera: THREE.Camera;
 
   constructor(canvas: HTMLCanvasElement) {
     this.container = canvas.parentElement!;
@@ -32,21 +34,24 @@ export class ThreeJSManager {
     const aspect = this.container.clientWidth / this.container.clientHeight;
     const effectiveFrustumSize = this.frustumSize / this.currentZoomLevel;
 
+    // Initialisierung der OrthographicCamera
+    const orthoCam = new THREE.OrthographicCamera(
+      (-effectiveFrustumSize * aspect) / 2,
+      (effectiveFrustumSize * aspect) / 2,
+      effectiveFrustumSize / 2,
+      -effectiveFrustumSize / 2,
+      0.1,
+      2000
+    );
+
     this.elements = {
       scene: new THREE.Scene(),
-      camera: new THREE.OrthographicCamera(
-        (-effectiveFrustumSize * aspect) / 2,
-        (effectiveFrustumSize * aspect) / 2,
-        effectiveFrustumSize / 2,
-        -effectiveFrustumSize / 2,
-        0.1,
-        1000
-      ),
+      camera: orthoCam,
       renderer: new THREE.WebGLRenderer({
         canvas: canvas,
         alpha: true,
         antialias: true,
-        powerPreference: "high-performance", // Fordert die dedizierte GPU an
+        powerPreference: "high-performance",
       }),
       teethModel: null,
       jawBoneLower: null,
@@ -54,14 +59,21 @@ export class ThreeJSManager {
       pivot: pivot,
       anchorGroup: anchorGroup,
       topLipMarker: null,
+      // NEU: Callback für den ARController zum Kamera-Wechsel
+      setCamera: (newCam: THREE.Camera) => {
+        this.activeCamera = newCam;
+      },
     };
+
+    // Standardmäßig ist die Ortho-Kamera aktiv
+    this.activeCamera = this.elements.camera;
 
     this.blendingState = {
       blendUniform: { value: 0.0 },
       rottenBaseColorMap: null,
       isAnimating: false,
       animationStartTime: 0,
-      animationDuration: 4000, // ms
+      animationDuration: 4000,
       startRoughness: 0.5,
       endRoughness: 0.8,
       startColor: new THREE.Color(),
@@ -79,7 +91,7 @@ export class ThreeJSManager {
   private initRenderer() {
     const renderer = this.elements.renderer;
     renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Begrenzung auf 2 für Performance
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
 
@@ -96,54 +108,43 @@ export class ThreeJSManager {
   }
 
   private applyZoom() {
-    const { camera } = this.elements;
-    const aspect = this.container.clientWidth / this.container.clientHeight;
-    const effectiveFrustumSize = this.frustumSize / this.currentZoomLevel;
+    // Nur anwenden, wenn wir noch im Ortho-Modus sind
+    if (this.activeCamera instanceof THREE.OrthographicCamera) {
+      const camera = this.activeCamera;
+      const aspect = this.container.clientWidth / this.container.clientHeight;
+      const effectiveFrustumSize = this.frustumSize / this.currentZoomLevel;
 
-    camera.left = (-effectiveFrustumSize * aspect) / 2;
-    camera.right = (effectiveFrustumSize * aspect) / 2;
-    camera.top = effectiveFrustumSize / 2;
-    camera.bottom = -effectiveFrustumSize / 2;
-    camera.updateProjectionMatrix();
+      camera.left = (-effectiveFrustumSize * aspect) / 2;
+      camera.right = (effectiveFrustumSize * aspect) / 2;
+      camera.top = effectiveFrustumSize / 2;
+      camera.bottom = -effectiveFrustumSize / 2;
+      camera.updateProjectionMatrix();
+    }
   }
 
-  /**
-   * NEU: GPU Warm-up Funktion.
-   * Compiliert Shader und lädt Texturen vorab hoch.
-   */
   public async warmUp() {
     if (this.isWarmedUp || !this.elements.teethModel) return;
+    const { renderer, scene } = this.elements;
 
-    const { renderer, scene, camera, teethModel } = this.elements;
+    const originalVisibility = this.elements.teethModel.visible;
+    this.elements.teethModel.visible = true;
 
-    // 1. Sichtbarkeit kurz erzwingen, damit der Renderer das Modell beachtet
-    const originalVisibility = teethModel.visible;
-    teethModel.visible = true;
+    renderer.compile(scene, this.activeCamera);
+    renderer.render(scene, this.activeCamera);
 
-    // 2. Shader Vorkompilierung
-    renderer.compile(scene, camera);
-
-    // 3. Texture Upload erzwingen (Null-Frame Rendering)
-    renderer.render(scene, camera);
-
-    // 4. Zurücksetzen
-    teethModel.visible = originalVisibility;
+    this.elements.teethModel.visible = originalVisibility;
     this.isWarmedUp = true;
-
-    console.log("ThreeJS GPU Warm-up complete.");
   }
 
   public async loadModel(
     onProgress: (percent: number) => void
   ): Promise<ThreeElements> {
-    // Textur-Lade-Promise
     const loadTexture = new Promise<void>((resolve, reject) => {
       this.textureLoader.load(
         ROTTEN_BASECOLOR_URL,
         (texture) => {
           texture.flipY = false;
           texture.colorSpace = THREE.SRGBColorSpace;
-          texture.minFilter = THREE.LinearFilter; // Performance: Kein Mipmapping nötig bei festem Abstand
           this.blendingState.rottenBaseColorMap = texture;
           resolve();
         },
@@ -152,7 +153,6 @@ export class ThreeJSManager {
       );
     });
 
-    // Modell-Lade-Promise
     const loader = new GLTFLoader();
     const loadMainModel = new Promise<THREE.Group>((resolve, reject) => {
       loader.load(
@@ -164,7 +164,6 @@ export class ThreeJSManager {
     });
 
     const [_, teethModel] = await Promise.all([loadTexture, loadMainModel]);
-
     this.elements.teethModel = teethModel;
 
     teethModel.traverse((child: any) => {
@@ -182,7 +181,6 @@ export class ThreeJSManager {
       }
     });
 
-    // Modell-Setup (Ankerpunkt-Logik)
     teethModel.scale.set(AR_CONFIG.SCALE, AR_CONFIG.SCALE, AR_CONFIG.SCALE);
     const box = new THREE.Box3().setFromObject(teethModel);
     const center = new THREE.Vector3();
@@ -192,29 +190,23 @@ export class ThreeJSManager {
     this.elements.anchorGroup.add(teethModel);
     teethModel.visible = false;
 
-    // Debug Marker
     const marker = new THREE.Mesh(
       new THREE.SphereGeometry(AR_CONFIG.SCALE * 0.1, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0xff0000 })
+      new THREE.MeshBasicMaterial({ color: 0xff0000, visible: false }) // Marker meist unsichtbar
     );
     this.elements.anchorGroup.add(marker);
     this.elements.topLipMarker = marker;
 
-    // Direkt nach dem Laden aufwärmen
     await this.warmUp();
-
     return this.elements;
   }
 
-  public startAnimation(material?: THREE.MeshStandardMaterial) {
+  public startAnimation() {
     const state = this.blendingState;
-
-    if (material) {
-      state.targetMaterial = material;
-      state.startRoughness = material.roughness;
-      state.startColor.copy(material.color);
+    if (state.targetMaterial) {
+      state.startRoughness = state.targetMaterial.roughness;
+      state.startColor.copy(state.targetMaterial.color);
     }
-
     state.blendUniform.value = 0;
     state.animationStartTime = performance.now();
     state.isAnimating = true;
@@ -222,17 +214,13 @@ export class ThreeJSManager {
 
   private animate = () => {
     requestAnimationFrame(this.animate);
-
     const state = this.blendingState;
 
     if (state.isAnimating && state.targetMaterial) {
       const now = performance.now();
       const elapsed = now - state.animationStartTime;
-
       let t = Math.min(elapsed / state.animationDuration, 1);
-      // Smoothstep
       t = t * t * (3 - 2 * t);
-
       state.blendUniform.value = t;
 
       const material = state.targetMaterial;
@@ -243,64 +231,28 @@ export class ThreeJSManager {
       );
       material.color.lerpColors(state.startColor, state.endColor, t);
 
-      if (t >= 1) {
-        state.isAnimating = false;
-      }
+      if (t >= 1) state.isAnimating = false;
     }
 
-    this.elements.renderer.render(this.elements.scene, this.elements.camera);
+    // WICHTIG: Immer mit der activeCamera rendern
+    this.elements.renderer.render(this.elements.scene, this.activeCamera);
   };
 
-  public zoom(
-    targetZoomLevel: number,
-    time: number,
-    centerVector: THREE.Vector3
-  ) {
-    gsap.to(this, {
-      currentZoomLevel: targetZoomLevel,
-      duration: time,
-      ease: "power2.inOut",
-      onUpdate: () => this.applyZoom(),
-    });
-
-    gsap.to(this.elements.camera.position, {
-      x: centerVector.x,
-      y: centerVector.y,
-      duration: time,
-      ease: "power2.inOut",
-    });
-  }
-
   public resize() {
-    this.elements.renderer.setSize(
-      this.container.clientWidth,
-      this.container.clientHeight
-    );
-    this.applyZoom();
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    this.elements.renderer.setSize(width, height);
+
+    if (this.activeCamera instanceof THREE.PerspectiveCamera) {
+      this.activeCamera.aspect = width / height;
+      this.activeCamera.updateProjectionMatrix();
+    } else {
+      this.applyZoom();
+    }
   }
 
   public dispose() {
     this.elements.renderer.dispose();
-    if (this.blendingState.rottenBaseColorMap)
-      this.blendingState.rottenBaseColorMap.dispose();
-  }
-
-  public freeze(): THREE.Vector3 {
-    // Stoppe die Animation, falls sie läuft
-    this.blendingState.isAnimating = false;
-
-    // Berechne die zentrale Position des Modells
-    const box = new THREE.Box3().setFromObject(this.elements.teethModel);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-
-    // Setze die Position des Modells auf die aktuelle Position
-    this.elements.teethModel.position.copy(center);
-
-    return center;
+    this.blendingState.rottenBaseColorMap?.dispose();
   }
 }
-/**
- * Stoppt das Modell an der aktuellen Position und gibt die zentrale Position zurück.
- * @returns Die zentrale Position des Modells als THREE.Vector3.
- */

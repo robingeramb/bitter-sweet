@@ -298,7 +298,11 @@ function unfreezeFrame() {
   renderLoop();
 }
 
-defineExpose({ freezeFrame, unfreezeFrame });
+function getCanvasRect() {
+  return canvasEl.value?.getBoundingClientRect() ?? null;
+}
+
+defineExpose({ freezeFrame, unfreezeFrame, getCanvasRect });
 </script>
 
 <style scoped>

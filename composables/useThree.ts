@@ -25,6 +25,8 @@ export const productMaterial = new CANNON.Material("product"); // NEU
 export const shoppingCartMaterial = new CANNON.Material("shoppingCart"); // NEU
 export const groundMaterial = new CANNON.Material("ground"); // NEU
 
+export const shoppingCartGroup = new THREE.Group();
+
 // NEU: Kontaktverhalten zwischen Spieler und Regal definieren
 const playerShelfContactMaterial = new CANNON.ContactMaterial(
   playerMaterial,
@@ -158,13 +160,20 @@ export let _outlinePass: OutlinePass;
 export const camera = new THREE.PerspectiveCamera(50, 200 / 200, 0.001, 30);
 markRaw(camera); // KORREKTUR: Verhindert, dass Vue die Kamera reaktiv macht und den Proxy-Fehler auslöst.
 export const productSelection = new THREE.Group();
+export const productSelectionCannonBodies = new THREE.Group();
 markRaw(productSelection); // KORREKTUR: Verhindert, dass die Gruppe reaktiv wird.
 // KORREKTUR: Die Map selbst muss als "roh" markiert werden, um zu verhindern, dass Vue ihre Inhalte (Schlüssel/Werte) beim Iterieren in Proxies umwandelt.
 // KORREKTUR: Kapseln der physicObjects-Map, um sie vollständig aus dem Reaktivitätssystem von Vue zu entfernen.
 const _physicObjects = new Map<THREE.Object3D, CANNON.Body>();
+const _shoppingCartObjects = new Map<THREE.Object3D, CANNON.Body>();
 export const getPhysicObjects = () => _physicObjects;
 export const setPhysicObject = (mesh: THREE.Object3D, body: CANNON.Body) =>
   _physicObjects.set(mesh, body);
+export const getshoppingCartObjects = () => _shoppingCartObjects;
+export const setShoppingCartObjects = (
+  mesh: THREE.Object3D,
+  body: CANNON.Body
+) => _shoppingCartObjects.set(mesh, body);
 export const deletePhysicObject = (mesh: THREE.Object3D) =>
   _physicObjects.delete(mesh); // Diese Zeile ist korrekt und muss exportiert werden.
 
@@ -331,6 +340,7 @@ export function useThree() {
     scene.background = new THREE.Color(0x000000);
     scene.add(ambientLight);
     scene.add(productSelection);
+    scene;
 
     // Add an object to illuminate
 

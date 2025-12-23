@@ -28,6 +28,11 @@
     </div>
     <!--<EndScreen v-if="endScreen" @restartFunction="setRestartFunction" />-->
 
+    <div
+      class="w-full opacity-0 h-full bg-black pointer-events-none fixed left-0 top-0"
+      ref="blend"
+    ></div>
+
     <Countdown
       v-if="!endScreen"
       ref="countdown"
@@ -43,11 +48,11 @@
       :scrollVal="scrollValue"
       :faceDisplay="faceDisplayRef"
     />
-
+    <!--
     <Story
       v-if="variablesStore.showInnerBody"
       :sugarAmount="shoppingCartStore.getSugarScore() / 3"
-    />
+    />-->
   </div>
 </template>
 
@@ -58,6 +63,7 @@ const variablesStore = useVariablesStore();
 const shoppingCartStore = useShoppingCartStore();
 
 const countdown = ref();
+const blend = ref<HTMLElement | null>(null); // Initialize blend reference
 
 const faceDisplayRef = ref<HTMLElement | null>(null);
 const consequencesFace = ref<HTMLElement | null>(null);
@@ -110,13 +116,19 @@ function startSetup() {
 }
 
 const handleSequenceComplete = () => {
-  startZoom(3, 2);
+  startZoom(32, 2);
 };
 
 function startZoom(i: number, t: number) {
   if (consequencesFace.value) {
     consequencesFace.value.startZoom(i, t);
   }
+  gsap.to(blend.value, {
+    opacity: 1,
+    delay: t / 4,
+    duration: (t / 4) * 3,
+    ease: "power2.inOut",
+  });
 }
 
 function animateTeeth() {

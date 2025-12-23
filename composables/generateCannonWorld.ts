@@ -5,7 +5,7 @@ export const generateShoppingCartBody = (): CANNON.Body => {
   const x = 0.37;
   const y = 0.3;
   const z = 0.84;
-  const h = 0.02; // Dicke der Wände/des Bodens
+  const h = 0.04; // Dicke der Wände/des Bodens
 
   const shoppingCartBody = new CANNON.Body({
     mass: 20, // Eine realistische Masse für einen Einkaufswagen
@@ -22,22 +22,22 @@ export const generateShoppingCartBody = (): CANNON.Body => {
   // KORREKTUR: Der Ursprung des Physik-Körpers (sein .position-Vektor) ist jetzt der unterste Punkt des Wagens.
   // Alle Shapes werden relativ zu diesem Punkt nach oben verschoben, um die Stabilität zu gewährleisten.
   const basketBottomY = 0.4; // Die Y-Position, an der der Boden des Korbes beginnt.
-  
+
   // KORREKTUR: Anstelle von vier instabilen Kugeln als "Räder" wird eine einzige, stabile Box als Basis verwendet.
   // Diese große, flache Box liegt stabil auf dem Boden und verhindert das "Hüpfen" vollständig.
   // Sie ist das physikalische Äquivalent zum Fahrgestell.
-  const baseHeight = 0.1;
-  const baseShape = new CANNON.Box(new CANNON.Vec3(x / 2, baseHeight / 2, z / 2));
+  const baseHeight = 0.2;
+  const baseShape = new CANNON.Box(
+    new CANNON.Vec3(x / 2, baseHeight / 2, z / 2)
+  );
   shoppingCartBody.addShape(baseShape, new CANNON.Vec3(0, baseHeight / 2, 0)); // Positioniert die Basis direkt am Ursprung des Körpers.
 
   // 1. Boden des Korbes (jetzt korrekt angehoben)
-  const floorShape = new CANNON.Box(new CANNON.Vec3(x / 2, h / 2, z / 2));
+  const floorShape = new CANNON.Box(new CANNON.Vec3(x, h / 2, z));
   shoppingCartBody.addShape(floorShape, new CANNON.Vec3(0, basketBottomY, 0)); // Positioniert den Korb-Boden auf der korrekten Höhe.
 
   // 2. Seitenwände (links und rechts, jetzt korrekt angehoben)
-  const sideWallShape = new CANNON.Box(
-    new CANNON.Vec3(h / 2, y / 2, z / 2)
-  );
+  const sideWallShape = new CANNON.Box(new CANNON.Vec3(h / 2, y / 2, z / 2));
   shoppingCartBody.addShape(
     sideWallShape,
     new CANNON.Vec3(x / 2, basketBottomY + y / 2, 0) // Rechte Wand
@@ -48,8 +48,11 @@ export const generateShoppingCartBody = (): CANNON.Body => {
   ); // Linke Wand
 
   // 3. Rückwand (beim Griff, jetzt korrekt angehoben)
-  const backWallShape = new CANNON.Box(new CANNON.Vec3(x / 2, y / 2, h / 2));
-  shoppingCartBody.addShape(backWallShape, new CANNON.Vec3(0, basketBottomY + y / 2, z / 2)); // Rückwand
+  const backWallShape = new CANNON.Box(new CANNON.Vec3(x, y, h));
+  shoppingCartBody.addShape(
+    backWallShape,
+    new CANNON.Vec3(0, basketBottomY + y / 2, z / 2)
+  ); // Rückwand
 
   // 4. Vorderwand (schräg, jetzt korrekt angehoben)
   const frontWallShape = new CANNON.Box(

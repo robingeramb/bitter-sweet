@@ -11,6 +11,7 @@ import {
   clock,
   _composer,
   productSelection,
+  productSelectionCannonBodies,
   taskDone,
   selectMode,
   hoveredProduct,
@@ -18,6 +19,7 @@ import {
   productView,
   world,
   getPhysicObjects,
+  getshoppingCartObjects,
   groundMaterial, // NEU: groundMaterial importieren
   bodiesToRemove, // NEU: Importiere die Liste der zu entfernenden Körper
   shoppingCartMaterial, // NEU: shoppingCartMaterial importieren
@@ -439,9 +441,32 @@ async function setupCashRegister(): Promise<void> {
   }
 }
 
+let firstFrame = true;
+
 function renderLoop(): void {
   const deltaTime = clock.getDelta();
 
+  if (firstFrame) {
+    if (shoppingCart) {
+      const forwardFirst = new THREE.Vector3(0, 0, -1).applyQuaternion(
+        camera.quaternion
+      );
+      forwardFirst.y = 0;
+      forwardFirst.normalize();
+      let idealPosition2: CANNON.Vec3 = new CANNON.Vec3();
+      idealPosition2 = new CANNON.Vec3(
+        playerBody!.position.x,
+        shoppingCartBody.position.y,
+        playerBody!.position.z
+      );
+      idealPosition2.vadd(
+        new CANNON.Vec3(forwardFirst.x, 0, forwardFirst.z).scale(0.8),
+        idealPosition2
+      );
+      shoppingCart.position.copy(idealPosition2 as unknown as THREE.Vector3);
+      firstFrame = false;
+    }
+  }
   // NEU: DEBUG: Y-Positionen am Anfang des Render-Loops
   if (playerBody && !variablesStore.cashoutStart) {
     debugYPositions.push(playerBody.position.y);
@@ -455,11 +480,23 @@ function renderLoop(): void {
   }
 
   const physicObjects = getPhysicObjects();
+  const shoppingCartObjects = getshoppingCartObjects();
   // --- VORBEREITUNG FÜR PHYSIK-UPDATE ---
   // Synchronisiere alle physischen Objekte (Produkte im Korb) mit ihren visuellen Meshes
   // WICHTIG: Dies muss VOR world.step() geschehen, damit Kollisions-Events auf 'threemesh' zugreifen können.
   if (!variablesStore.cashoutStart) {
     for (const [mesh, body] of physicObjects.entries()) {
+      // Verknüpfe den Physik-Körper mit seinem Mesh, damit die Kollisionslogik darauf zugreifen kann.
+      (body as any).threemesh = mesh;
+    }
+
+    // --- PHYSIK-UPDATE ---
+    // Die Physik-Welt wird in jedem Frame aktualisiert.
+
+    world.step(fixedTimeStep, deltaTime, 10);
+  }
+  if (!variablesStore.cashoutStart) {
+    for (const [mesh, body] of shoppingCartObjects.entries()) {
       // Verknüpfe den Physik-Körper mit seinem Mesh, damit die Kollisionslogik darauf zugreifen kann.
       (body as any).threemesh = mesh;
     }
@@ -518,6 +555,8 @@ function renderLoop(): void {
     );
   }
 
+  let idealPosition: CANNON.Vec3 = new CANNON.Vec3();
+
   // --- EINKAUFSWAGEN-UPDATE ---
   if (shoppingCart && shoppingCartBody && !variablesStore.cashoutStart) {
     // --- KORREKTUR: Sanftere Verfolgung durch Feder-ähnliche Kräfte statt direkter Geschwindigkeitssteuerung ---
@@ -537,7 +576,7 @@ function renderLoop(): void {
       forward.normalize();
 
       // 1. Berechne die ideale Zielposition (der "Geist").
-      const idealPosition = new CANNON.Vec3(
+      idealPosition = new CANNON.Vec3(
         playerBody!.position.x,
         shoppingCartBody.position.y,
         playerBody!.position.z
@@ -546,7 +585,7 @@ function renderLoop(): void {
         new CANNON.Vec3(forward.x, 0, forward.z).scale(0.8),
         idealPosition
       );
-      shoppingCartBody.position.copy(idealPosition);
+      //shoppingCartBody.position.copy(idealPosition);
 
       // 2. Berechne die ideale Rotation und setze sie.
       shoppingCart.rotation.y = Math.atan2(forward.x, forward.z) + Math.PI;
@@ -555,8 +594,8 @@ function renderLoop(): void {
         new CANNON.Vec3(0, 1, 0),
         shoppingCart.rotation.y
       );
-      shoppingCartBody.quaternion.copy(targetQuaternion);
-      shoppingCartBody.wakeUp();
+      //shoppingCartBody.quaternion.copy(targetQuaternion);
+      //shoppingCartBody.wakeUp();
 
       // NEU: Sound abspielen, wenn der Wagen sich bewegt
       if (
@@ -566,6 +605,10 @@ function renderLoop(): void {
       ) {
         shoppingCartSound.play().catch(() => {});
       }
+      shoppingCart.position.copy(idealPosition as unknown as THREE.Vector3);
+      shoppingCart.quaternion.copy(
+        targetQuaternion as unknown as THREE.Quaternion
+      );
     } else {
       // NEU: Sound pausieren, wenn der Wagen steht
       if (shoppingCartSound && !shoppingCartSound.paused) {
@@ -574,12 +617,6 @@ function renderLoop(): void {
     }
 
     // 6. Visuelles Modell mit Physik-Modell synchronisieren
-    shoppingCart.position.copy(
-      shoppingCartBody.position as unknown as THREE.Vector3
-    );
-    shoppingCart.quaternion.copy(
-      shoppingCartBody.quaternion as unknown as THREE.Quaternion
-    );
 
     // NEU: Debugger-Mesh mit der Physik synchronisieren
     if (shoppingCartDebugMesh) {
@@ -593,7 +630,10 @@ function renderLoop(): void {
 
     // Drop-Zone für Produkte mitbewegen
     productSelection.position.copy(shoppingCart.position);
-    productSelection.position.y = 0.42;
+    productSelection.quaternion.copy(shoppingCart.quaternion);
+    productSelectionCannonBodies.position.copy(shoppingCartBody.position);
+    productSelectionCannonBodies.position.y = 0.42;
+    productSelection.position.y = 0;
   }
 
   if (taskDone.value == true) {
@@ -607,6 +647,17 @@ function renderLoop(): void {
   if (!variablesStore.cashoutStart) {
     for (const [mesh, body] of physicObjects.entries()) {
       mesh.position.copy(body.position as unknown as THREE.Vector3);
+      mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion);
+    }
+    for (const [mesh, body] of shoppingCartObjects.entries()) {
+      const mergedPos = new THREE.Vector3(
+        body.position.x,
+        body.position.y,
+        body.position.z - 3
+      );
+
+      //console.log(mergedPos);
+      mesh.position.copy(mergedPos);
       mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion);
     }
   }
@@ -711,8 +762,8 @@ onMounted(() => {
     // KORREKTUR: Setze den Wagen leicht über den Boden, um Startkollisionen zu vermeiden.
     const initialCartPos = new THREE.Vector3(0, -0.9, camera.position.z - 1.0); // KORREKTUR: An neue Bodenhöhe anpassen.
     if (shoppingCart) shoppingCart.position.copy(initialCartPos);
-    if (shoppingCartBody)
-      shoppingCartBody.position.copy(initialCartPos as unknown as CANNON.Vec3);
+    // if (shoppingCartBody)
+    // shoppingCartBody.position.copy(initialCartPos as unknown as CANNON.Vec3);
 
     // KORREKTUR: Spieler-Kollisionskörper als Box statt Kapsel, um das "Hochrutschen" an Wänden zu verhindern.
     const playerRadius = 0.3;

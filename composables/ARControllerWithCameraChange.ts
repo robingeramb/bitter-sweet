@@ -8,10 +8,13 @@ import GUI from "lil-gui"; // npm install lil-gui
 interface ThreeElements {
   teethModel: THREE.Group | null;
   jawBoneLower: THREE.Bone | null;
+  scene: THREE.Scene;
   pivot: THREE.Group | null;
   anchorGroup: THREE.Group | null;
   camera: THREE.OrthographicCamera;
   topLipMarker: THREE.Mesh | null;
+  renderer: THREE.WebGLRenderer;
+  setCamera: any;
 }
 
 type TV = any;
@@ -62,6 +65,7 @@ export class ARController {
     this.threeElements = threeElements;
 
     // Debug UI starten
+    this.initDebugUI();
   }
 
   /**
@@ -401,38 +405,92 @@ export class ARController {
     time: number,
     centerVector: THREE.Vector3
   ) {
-    const { pivot } = this.threeElements;
-    if (!pivot) return;
-    const finalTargetScale = pivot.scale.x * targetZoomLevel;
-    gsap.to(pivot.position, {
-      x: 0,
-      y: 0 + 8 * finalTargetScale,
-      duration: time,
-      ease: "power2.inOut",
-      overwrite: "auto",
-    });
-    gsap.to(pivot.scale, {
-      x: finalTargetScale,
-      y: finalTargetScale,
-      z: finalTargetScale,
-      duration: time,
-      ease: "power2.inOut",
-      overwrite: "auto",
+    const { pivot, camera: orthoCam, setCamera } = this.threeElements;
+    if (!pivot || !orthoCam) return;
+
+    // --- SCHRITT 1: PERSPECTIVE CAMERA SETUP ---
+    const fov = 35;
+    const aspect = window.innerWidth / window.innerHeight;
+    const perspectiveCam = new THREE.PerspectiveCamera(fov, aspect, 0.1, 2000);
+
+    // --- SCHRITT 2: MATCH-CUT (Distanz berechnen) ---
+    // Damit der Wechsel unsichtbar ist, berechnen wir die exakte Z-Distanz
+    const orthoHeight = (orthoCam.top - orthoCam.bottom) / orthoCam.zoom;
+    const distance = orthoHeight / (2 * Math.atan((fov * Math.PI) / 360));
+
+    // Neue Kamera exakt dort positionieren, wo die Ortho-Kamera "schaut"
+    perspectiveCam.position.set(
+      orthoCam.position.x,
+      orthoCam.position.y,
+      distance
+    );
+    perspectiveCam.lookAt(orthoCam.position.x, orthoCam.position.y, 0);
+    perspectiveCam.updateMatrixWorld();
+
+    // Kamera im ThreeJSManager umschalten
+    if (setCamera) setCamera(perspectiveCam);
+
+    // --- SCHRITT 3: ZOOM ANIMATION (Die Annäherung) ---
+    const tl = gsap.timeline({
       onComplete: () => {
-        this.intoMouthFade(pivot);
+        // Erst wenn dieser Zoom fertig ist, starten wir die Fahrt "hinein"
+        this.intoMouthFade(perspectiveCam, pivot);
       },
     });
+    const finalTargetScale = pivot.scale.x * targetZoomLevel;
+    // Kamera fährt näher ran, aber noch NICHT durch das Modell hindurch
+    // Wir fahren auf etwa 15-20% der Ursprungsdistanz heran
+    tl.to(
+      perspectiveCam.position,
+      {
+        x: 0,
+        y: 0 - 8 * finalTargetScale,
+        z: distance * 0.18,
+        duration: time,
+        ease: "power2.inOut",
+        onUpdate: () => perspectiveCam.updateProjectionMatrix(),
+      },
+      0
+    );
+
+    // Das Modell gleichzeitig etwas größer skalieren
+    tl.to(
+      pivot.scale,
+      {
+        x: pivot.scale.x * targetZoomLevel,
+        y: pivot.scale.y * targetZoomLevel,
+        z: pivot.scale.z * targetZoomLevel,
+        duration: time,
+        ease: "power2.inOut",
+      },
+      0
+    );
   }
 
-  private intoMouthFade(pivot: any) {
-    /* gsap.to(pivot.position, {
-      x: 0,
-      y: 0,
-      z: 0,
-      duration: 2,
-      ease: "power2.inOut",
-      overwrite: "auto",
-    });*/
+  private intoMouthFade(camera: THREE.PerspectiveCamera, pivot: THREE.Group) {
+    console.log("Starte Fahrt in den Mund...");
+
+    const tl = gsap.timeline();
+
+    // Jetzt fahren wir RICHTIG rein (hinter die Z-Ebene 0)
+    tl.to(camera.position, {
+      z: -15, // Wir fahren "hinter" das Gebiss
+      duration: 2.5,
+      ease: "power1.in",
+      onUpdate: () => camera.updateProjectionMatrix(),
+    });
+
+    // Während wir reinfahren, können wir das Modell leicht ausfaden oder
+    // die Kamera leicht nach unten neigen, um "in den Hals" zu schauen
+    tl.to(
+      camera.rotation,
+      {
+        x: -Math.PI * 0.1, // Leichter Blick nach unten
+        duration: 2.5,
+        ease: "power1.in",
+      },
+      0
+    );
   }
 
   public stop() {

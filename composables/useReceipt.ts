@@ -43,12 +43,12 @@ export function animateReceipt() {
   // Ziel: Länge + ein kleines Stück extra, damit er am Ende locker hängt
   const targetDist = l;
 
-  const dur = receiptData.items.length * 0.3 + 3; // Dauer basierend auf Anzahl Items
+  const dur = receiptData.items.length * 0.6 + 3; // Dauer basierend auf Anzahl Items
 
   gsap.to(config, {
     progress: targetDist,
     duration: dur,
-    ease: "power2.inOut", // Fängt sanft an, wird schneller, bremst sanft
+    ease: "power1.inOut", // Fängt sanft an, wird schneller, bremst sanft
     onComplete: () => {
       const variablesStore = useVariablesStore();
       document.exitPointerLock();
@@ -143,10 +143,10 @@ export async function createReceiptTexture(data, widthMeter) {
 
   // Abstände
   const marginX = 50;
-  const lineGap = 40; // Abstand zwischen Items
+  const lineGap = 20; // Abstand zwischen Items
   const lineHeight = 50; // Höhe einer einzelnen Textzeile
   const titleHeight = 160;
-  const sumSectionHeight = 520; // Pauschale Höhe für den Footer (Total, Limit, etc.)
+  const sumSectionHeight = 620; // Pauschale Höhe für den Footer (Total, Limit, etc.)
 
   // Bereich für Zucker-Anzeige rechts reservieren (z.B. 250px)
   const sugarColumnWidth = 100;
@@ -223,8 +223,8 @@ export async function createReceiptTexture(data, widthMeter) {
     ctx.textAlign = "right";
     ctx.fillText(item.sugarAmount + " g", canvas.width - marginX, y);
 
-    totalSugar += item.sugarAmount;
-
+    totalSugar += Math.round(item.sugarAmount * 10) / 10;
+    console.log(totalSugar);
     // Y für das nächste Item erhöhen
     // Wir addieren die tatsächliche Höhe dieses Items (inkl. aller Zeilen)
     y += item.height;
@@ -233,6 +233,9 @@ export async function createReceiptTexture(data, widthMeter) {
   // --- FOOTER / TOTAL ---
   // Ab hier ist y dynamisch korrekt verschoben
   y += 50;
+  const maxDaily = 25;
+  const percentage =
+    maxDaily > 0 ? Math.round(((totalSugar / maxDaily) * 1000) / 3) / 10 : 0;
 
   ctx.font = fontSum;
   ctx.textAlign = "left";
@@ -241,17 +244,18 @@ export async function createReceiptTexture(data, widthMeter) {
   y += 80;
   ctx.font = fontTitle;
   ctx.textAlign = "right";
-  ctx.fillStyle = "red";
+
+  if (percentage > 100) {
+    ctx.fillStyle = "red";
+  } else {
+    ctx.fillStyle = "green";
+  }
   ctx.fillText(`${totalSugar} g`, canvas.width - marginX, y);
 
   y += 110;
   ctx.fillStyle = "black";
   ctx.font = fontSum;
   ctx.textAlign = "left";
-
-  const maxDaily = 25;
-  const percentage =
-    maxDaily > 0 ? ((totalSugar / maxDaily) * 100).toFixed(0) : 0;
 
   ctx.fillText(`The Healthy limit`, marginX, y);
   y += 50;
@@ -262,7 +266,11 @@ export async function createReceiptTexture(data, widthMeter) {
   y += 120;
 
   ctx.font = fontXtreme;
-  ctx.fillStyle = "red";
+  if (percentage > 100) {
+    ctx.fillStyle = "red";
+  } else {
+    ctx.fillStyle = "green";
+  }
   ctx.fillText(`${percentage}%`, canvas.width - marginX, y);
   y += 70;
   ctx.fillStyle = "black";

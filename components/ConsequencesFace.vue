@@ -44,43 +44,57 @@ function animateTeeth() {
 }
 
 async function startZoom(i: number, t: number) {
-  // 1. Zuerst das Einfrieren und die Mundposition abrufen
   const mouthCenter = await faceDisplayComponent.value?.freezeFrame();
+  if (!mouthCenter || !faceDisplay.value) return;
 
-  if (faceDisplay.value && mouthCenter) {
-    const displayElement = faceDisplay.value;
-    const elementRect = displayElement.getBoundingClientRect();
-    const width = elementRect.width;
-    const height = elementRect.height;
-    const mirroredX = 1.0 - mouthCenter.x;
-    const targetX = mirroredX * width;
-    const targetY = mouthCenter.y * height;
+  console.log(mouthCenter);
 
-    const finalX = (width / 2 - targetX) * (i - 1);
-    const finalY = (height / 2 - targetY) * (i - 1);
+  const w = window.innerWidth;
+  const h = window.innerHeight;
 
-    // 3. Animation starten
-    gsap.to(displayElement, {
-      duration: t,
-      scaleX: i,
-      scaleY: i,
-      // Verschiebung des Elements, sodass der Mund in der Mitte zentriert wird
-      x: finalX,
-      y: finalY,
-      ease: "power2.inOut",
+  const canvasRect = faceDisplayComponent.value?.getCanvasRect?.();
+  if (!canvasRect) return;
 
-      onComplete: () => {
-        variablesStore.updateShowInnerBody(true);
-      },
-    });
+  const displayRect = faceDisplay.value.getBoundingClientRect();
 
-    // Aufruf der Child-Funktion in WebcamScene
-    webcamScene.value?.zoomIn(i, t, mouthCenter);
-  } else {
-    console.warn(
-      "FaceDisplay-Element oder Mundzentrum konnte nicht gefunden werden für Zoom."
-    );
-  }
+  // 1️⃣ Mouth → Viewport (Shader ist gespiegelt!)
+  const mouthViewportX = (1 - mouthCenter.x) * w;
+  const mouthViewportY = mouthCenter.y * h;
+
+  // 2️⃣ Viewport → FaceDisplay lokal
+  const localX = mouthViewportX;
+  const localY = mouthViewportY;
+
+  // 3️⃣ Zoom-Kompensation
+  const dx = w / 2 - localX;
+  const dy = h / 2 - localY;
+
+  gsap.set(faceDisplay.value, {
+    transformOrigin: "50% 50%",
+  });
+
+  const dot = document.createElement("div");
+  dot.style.position = "absolute";
+  dot.style.left = `${1 - mouthCenter.x * 100}%`;
+  dot.style.top = `${mouthCenter.y * 100}%`;
+  dot.style.width = "10px";
+  dot.style.height = "10px";
+  dot.style.background = "red";
+  dot.style.borderRadius = "50%";
+  dot.style.pointerEvents = "none";
+  faceDisplay.value.appendChild(dot);
+  gsap.to(faceDisplay.value, {
+    scale: i,
+    x: dx * i,
+    y: dy * i,
+    duration: t,
+    ease: "power2.inOut",
+    onComplete: () => {
+      variablesStore.updateShowInnerBody(true);
+    },
+  });
+
+  webcamScene.value?.zoomIn(i, t, mouthCenter);
 }
 
 onMounted(() => {

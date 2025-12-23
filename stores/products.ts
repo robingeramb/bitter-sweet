@@ -122,7 +122,7 @@ export const useProductsStore = defineStore({
         category: "drinks",
       },
       wine: {
-        sugarAmount: 0,
+        sugarAmount: 13,
         productName: "Wine",
         amount: 700,
         model: "wine.glb",
