@@ -286,7 +286,7 @@ function startInfoSequence(startIndex: number = 0) {
   const level = SUGAR_LEVELS.find((l) => props.sugarValue <= l.max);
   const maxVal = level
     ? level.max === Infinity
-      ? "Infinity"
+      ? "Inf"
       : level.max
     : "25";
 

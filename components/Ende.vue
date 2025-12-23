@@ -13,7 +13,7 @@
     <p ref="endText" class="end-text" v-html="displayText"></p>
     <!-- KORREKTUR: Buttons sind jetzt getrennt für eine präzisere Positionierung -->
     <!-- "Retry shopping" Button -->
-    <button v-if="showButtons" class="retry-button" :style="{ '--contour-color-rgb': contourColorRGB }">
+    <button v-if="showButtons" @click="handleRetry" class="retry-button" :style="{ '--contour-color-rgb': contourColorRGB }">
       Retry shopping
     </button>
 
@@ -36,7 +36,7 @@
         <h2>Tips for Less Sugar</h2>
         <ul ref="tipList"> <!-- NEU: Ref für die Liste der Tipps -->
           <li>
-            <strong>Read the labels:</strong> Check the "sugars" line in the nutritional information per 100g. Less than 5g is great, over 22.5g is high.
+            <strong>Read the labels:</strong> Check the "sugars" line in the nutritional information per 100g. Less than 5g is okay, everything over that may already be too much.
           </li>
           <li>
             <strong>Avoid processed foods:</strong> They often contain hidden sugars with names like glucose, fructose, sucrose, or maltodextrin.
@@ -60,6 +60,8 @@
 import { ref, onMounted, nextTick, computed } from 'vue';
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
+import { useVariablesStore, useShoppingCartStore } from "~/stores/store";
+import { useRetry } from "~/composables/useRetry";
 
 // NEU: Props definieren, um den Zuckerwert von außen zu erhalten
 const props = defineProps({
@@ -69,6 +71,10 @@ const props = defineProps({
     default: 50 // Ein Standardwert für den Fall, dass nichts übergeben wird
   }
 });
+
+const variablesStore = useVariablesStore();
+const shoppingCartStore = useShoppingCartStore();
+const { handleRetry } = useRetry();
 
 // NEU: Computed Property, die den Text basierend auf dem Zuckerwert auswählt
 const displayText = computed(() => {
@@ -116,6 +122,8 @@ const popupContent = ref<HTMLElement | null>(null); // NEU: Ref für den Inhalt
 const tipList = ref<HTMLElement | null>(null); // NEU: Ref für die Tipp-Liste
 const whooshSound = ref<HTMLAudioElement | null>(null);
 
+gsap.registerPlugin(SplitText);
+
 onMounted(() => {
   if (!endText.value) return;
 
@@ -126,7 +134,7 @@ onMounted(() => {
 
   // Den Text-Container sichtbar machen, aber die Wörter darin verstecken
   gsap.set(targetText, { opacity: 1 });
-  const split = new SplitText(targetText, { type: 'words' }); // KORREKTUR: Hier die Variable verwenden
+  const split = new SplitText(targetText as any, { type: 'words' }); // KORREKTUR: Type-Cast um TS-Fehler zu vermeiden
   gsap.set(split.words, { opacity: 0, y: 30 });
 
   // 1. Wörter fliegen nacheinander ein
@@ -140,7 +148,7 @@ onMounted(() => {
       // NEU: Sound abspielen, wenn die Animation startet
       if (whooshSound.value) {
         whooshSound.value.currentTime = 0; // Sound zurückspulen
-        whooshSound.value.play().catch(e => console.error("Sound konnte nicht abgespielt werden:", e));
+        whooshSound.value.play().catch((e: any) => console.error("Sound konnte nicht abgespielt werden:", e));
       }
     }
   })
@@ -207,6 +215,7 @@ const closeTipsPopup = () => {
     }
   });
 };
+
 
 </script>
 

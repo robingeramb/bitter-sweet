@@ -30,7 +30,11 @@ export const useShoppingCartStore = defineStore("shoppingCart", () => {
     return totalSugar;
   }
 
-  return { itemsInCart, addItemToCart, getSugarScore };
+  function clearCart() {
+    itemsInCart.value = [];
+  }
+
+  return { itemsInCart, addItemToCart, getSugarScore, clearCart };
 });
 
 export const useVariablesStore = defineStore("variables", () => {
@@ -44,6 +48,7 @@ export const useVariablesStore = defineStore("variables", () => {
   const showInnerBody = ref(false);
   const showTeeth = ref(false);
   const shoppingDone = ref(false);
+  const isSecondPlaythrough = ref(false);
 
   // 2. Die Aktion/Mutation (Action)
   function updatePlayerMotion(newValue: boolean) {
@@ -81,6 +86,10 @@ export const useVariablesStore = defineStore("variables", () => {
     shoppingDone.value = newValue;
   }
 
+  function updateIsSecondPlaythrough(newValue: boolean) {
+    isSecondPlaythrough.value = newValue;
+  }
+
   // Was die Store-Instanz nach außen gibt
   return {
     cursorFree,
@@ -100,5 +109,7 @@ export const useVariablesStore = defineStore("variables", () => {
     updateShowTeeth,
     shoppingDone,
     updateShoppingDone,
+    isSecondPlaythrough,
+    updateIsSecondPlaythrough,
   };
 });

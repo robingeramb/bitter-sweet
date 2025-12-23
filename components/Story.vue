@@ -9,12 +9,12 @@
     <Parallax
       v-if="currentScene === 'liver'"
       :intro-text-prop="computedLiverIntro"
-      :intro-audio-src="!isSecondPlaythrough ? 'organs_liver_intro' : undefined"
+      :intro-audio-src="!variablesStore.isSecondPlaythrough ? 'organs_liver_intro' : undefined"
       :main-image-healthy="'/parallax/Leber_Healthy3.png'"
       :main-image-disease="'/parallax/Leber3.png'"
       :text-parts-prop="computedLiverTexts"
       :particle-color-func="getLiverParticleColor"
-      :reverse-animation="isSecondPlaythrough"
+      :reverse-animation="variablesStore.isSecondPlaythrough"
       :sugar-amount="sugarAmount"
       :grow-sound-ref="growSound"
       @scene-finished="handleSceneFinished"
@@ -23,13 +23,13 @@
     <Parallax
       v-if="currentScene === 'heart'"
       :intro-text-prop="computedHeartIntro"
-      :intro-audio-src="!isSecondPlaythrough ? 'organs_heart_intro' : undefined"
+      :intro-audio-src="!variablesStore.isSecondPlaythrough ? 'organs_heart_intro' : undefined"
       :main-image-healthy="'/parallax/Herz_Healthy.png'"
       :main-image-disease="'/parallax/Herz_Disease.png'"
       :text-parts-prop="computedHeartTexts"
       :particle-color-func="getHeartParticleColor"
       :apply-heartbeat-animation="true"
-      :reverse-animation="isSecondPlaythrough"
+      :reverse-animation="variablesStore.isSecondPlaythrough"
       :sugar-amount="sugarAmount"
       :grow-sound-ref="growSound"
       @scene-finished="handleSceneFinished"
@@ -45,13 +45,11 @@
 import { ref, watch, onMounted, computed } from 'vue';
 import Parallax from './Parallax.vue';
 import Ende from './Ende.vue';
+import { useVariablesStore } from '~/stores/store';
 
-// NEU: Prop, um den zweiten Durchlauf zu steuern.
+const variablesStore = useVariablesStore();
+
 const props = defineProps({
-  isSecondPlaythrough: {
-    type: Boolean,
-    default: false,
-  },
   // NEU: Prop, um den Zuckerwert vom Spiel zu erhalten.
   sugarAmount: {
     type: Number,
@@ -169,21 +167,39 @@ const heartTextsMedium: TextPart[] = [
 ];
 const heartTextsUnhealthy: TextPart[] = [
   { text: "But don’t worry… too much sugar will take care of that.", audioSrc: "organs_heart_unhealthy1" },
-  { text: "Every extra spoon of sugar makes your heart work overtime,<br>thickens its walls, fattens it up, and clogs its vessels—turning it into a stiff,<br>sluggish pump that’s always behind.", audioSrc: "organs_heart_unhealthy2" },
+  { text: "Every extra spoon of sugar makes your heart work overtime, thickens its walls, fattens it up, and clogs its vessels—turning it into a stiff, sluggish pump that’s always behind.", audioSrc: "organs_heart_unhealthy2" },
 ];
 
 // --- Texte für den zweiten, "umgekehrten" Durchlauf ---
 
-const liverTextsReversed: TextPart[] = [
-  { text: "Your liver has recovered. Well done!", audioSrc: "organs_liver_reversed1" },
+const liverTextsReversedGood: TextPart[] = [
   { text: "By reducing your sugar intake, you have successfully reversed the damage.", audioSrc: "organs_liver_reversed2" },
   { text: "A healthy liver is crucial for your overall well-being and a long life.", audioSrc: "organs_liver_reversed3" }
 ];
 
-const heartTextsReversed: TextPart[] = [
-  { text: "Your heart is getting stronger.", audioSrc: "organs_heart_reversed1" },
+const heartTextsReversedGood: TextPart[] = [
   { text: "Lower sugar intake reduces blood pressure and inflammation, protecting you from heart disease.", audioSrc: "organs_heart_reversed2" },
   { text: "You have taken a big step towards a healthier heart and a longer life.", audioSrc: "organs_heart_reversed3" }
+];
+
+const liverTextsReversedMedium: TextPart[] = [
+  { text: "You cut back, but your liver is still storing fat. It's not a warehouse, you know.", audioSrc: "organs_liver_reversed_medium2" },
+  { text: "It's slightly better, but 'slightly' doesn't prevent disease. Try harder.", audioSrc: "organs_liver_reversed_medium3" }
+];
+
+const heartTextsReversedMedium: TextPart[] = [
+  { text: "You reduced the sugar, but the pressure is still there. Your vessels aren't exactly celebrating.", audioSrc: "organs_heart_reversed_medium2" },
+  { text: "Don't settle for 'okay'. 'Okay' is just a waiting room for 'bad'.", audioSrc: "organs_heart_reversed_medium3" }
+];
+
+const liverTextsReversedBad: TextPart[] = [
+  { text: "Your liver is still stuffed with fat, just like before. Did you think it would magically disappear?", audioSrc: "organs_liver_reversed_bad2" },
+  { text: "Keep feeding it sugar, and 'cirrhosis' will be more than just a threat. It'll be your reality.", audioSrc: "organs_liver_reversed_bad3" }
+];
+
+const heartTextsReversedBad: TextPart[] = [
+  { text: "You've changed nothing. Your heart is still working overtime, getting fatter and more clogged with every spoon you didn't skip.", audioSrc: "organs_heart_reversed_bad2" },
+  { text: "It's not a question of *if* it will fail, but *when*. Enjoy the sweet ride to the ER.", audioSrc: "organs_heart_reversed_bad3" }
 ];
 
 // NEU: Computed Properties zur Auswahl der richtigen Texte und Titel basierend auf dem Zuckerwert.
@@ -196,27 +212,43 @@ const healthState = computed(() => {
 });
 
 const computedLiverTexts = computed(() => {
-    if (props.isSecondPlaythrough) return liverTextsReversed;
+    if (variablesStore.isSecondPlaythrough) {
+        if (healthState.value === 'healthy') return liverTextsReversedGood;
+        if (healthState.value === 'medium') return liverTextsReversedMedium;
+        return liverTextsReversedBad;
+    }
     if (healthState.value === 'healthy') return liverTextsHealthy;
     if (healthState.value === 'medium') return liverTextsMedium;
     return liverTextsUnhealthy;
 });
 
 const computedHeartTexts = computed(() => {
-    if (props.isSecondPlaythrough) return heartTextsReversed;
+    if (variablesStore.isSecondPlaythrough) {
+        if (healthState.value === 'healthy') return heartTextsReversedGood;
+        if (healthState.value === 'medium') return heartTextsReversedMedium;
+        return heartTextsReversedBad;
+    }
     if (healthState.value === 'healthy') return heartTextsHealthy;
     if (healthState.value === 'medium') return heartTextsMedium;
     return heartTextsUnhealthy;
 });
 
 const computedLiverIntro = computed(() => {
-    if (props.isSecondPlaythrough) return 'Your liver is recovering.';
-    return 'Your liver —<br>lean, mean, ready to clean.';
+    if (variablesStore.isSecondPlaythrough) {
+        if (healthState.value === 'healthy') return 'Your liver is recovering.';
+        if (healthState.value === 'medium') return 'Your liver is trying to heal.';
+        return 'Your liver is still suffering. Thanks to you.';
+    }
+    return 'Your liver — lean, mean, ready to clean.';
 });
 
 const computedHeartIntro = computed(() => {
-    if (props.isSecondPlaythrough) return 'Your heart is recovering.';
-    return 'Now look.. your heart.<br>Still holding it together.';
+    if (variablesStore.isSecondPlaythrough) {
+        if (healthState.value === 'healthy') return 'Your heart is recovering.';
+        if (healthState.value === 'medium') return 'Your heart is getting a breather.';
+        return 'Your heart is still under siege.';
+    }
+    return 'Now look.. your heart. Still holding it together.';
 });
 
 // Die Funktion zur Erzeugung der Partikelfarben, spezifisch für die Leber-Szene.

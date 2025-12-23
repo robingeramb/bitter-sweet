@@ -864,9 +864,10 @@ const runIntroAnimation = async () => {
         animationStartTime = performance.now();
         // KORREKTUR: Organe initial setzen, je nach Animationsrichtung
         if (props.reverseAnimation) {
-          // Heilung: Start mit krankem Organ (teilweise sichtbar) über gesundem
+          // Heilung: Start mit krankem Organ (voll sichtbar) über gesundem
           gsap.set(healthyOrgan.value, { opacity: 1 });
-          gsap.set(unhealthyOrgan.value, { opacity: targetOpacity.value });
+          gsap.set(unhealthyOrgan.value, { opacity: 1 }); // Startet immer voll ungesund
+          gsap.set(backgroundTint.value, { opacity: 0.8 }); // Startet mit Tönung
         } else {
           // Verfall: Start mit gesundem Organ
           gsap.set(healthyOrgan.value, { opacity: 1 });
@@ -943,7 +944,7 @@ const runIntroAnimation = async () => {
     .to(
       unhealthyOrgan.value,
       {
-        opacity: props.reverseAnimation ? 0 : targetOpacity.value, // KORREKTUR: Zielwert je nach Modus
+        opacity: targetOpacity.value, // KORREKTUR: Zielwert ist immer der aktuelle Gesundheitszustand
         duration: 4, // 4 Sekunden Animation von gesund zu ungesund
         ease: "power2.inOut",
         onStart: () => {
@@ -988,7 +989,7 @@ const runIntroAnimation = async () => {
     .to(
       backgroundTint.value,
       {
-        opacity: props.reverseAnimation ? 0 : targetOpacity.value * 0.8, // KORREKTUR: Deckkraft weiter erhöht
+        opacity: targetOpacity.value * 0.8, // KORREKTUR: Zielwert ist immer der aktuelle Gesundheitszustand
         duration: 4,
         ease: "power2.inOut",
       },
@@ -1117,7 +1118,7 @@ onBeforeUnmount(() => {
 .scene-wrapper {
   width: 100%;
   height: 100%;
-  filter: brightness(1.15); /* Gesamte Szene etwas heller machen */
+  filter: brightness(1.3); /* Gesamte Szene etwas heller machen */
 }
 
 .parallax-container {
@@ -1175,6 +1176,8 @@ onBeforeUnmount(() => {
   font-size: 1.5rem; /* Schriftgröße erhöht */
   text-align: center;
   text-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+  max-width: 80%; /* Begrenzte Breite für automatischen Umbruch */
+  line-height: 1.4; /* Bessere Lesbarkeit bei mehrzeiligem Text */
 }
 
 /* NEU: Stile für das Intro-Overlay */
@@ -1194,11 +1197,13 @@ onBeforeUnmount(() => {
 
 .intro-text {
   color: rgba(255, 220, 220, 0.8);
-  font-size: 4rem;
+  font-size: clamp(2rem, 5vw, 5rem); /* Responsive Schriftgröße */
   font-weight: bold;
   text-shadow: 0 0 20px rgba(255, 100, 100, 0.3);
   text-align: center; /* KORREKTUR: Text zentrieren */
   opacity: 0; /* Startet unsichtbar für die GSAP-Animation */
+  max-width: 80%; /* Begrenzte Breite */
+  line-height: 1.2;
 }
 
 .vignette {
