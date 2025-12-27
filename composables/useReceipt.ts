@@ -250,7 +250,11 @@ export async function createReceiptTexture(data, widthMeter) {
   } else {
     ctx.fillStyle = "green";
   }
-  ctx.fillText(`${totalSugar} g`, canvas.width - marginX, y);
+  ctx.fillText(
+    `${Math.round(totalSugar * 10) / 10} g`,
+    canvas.width - marginX,
+    y
+  );
 
   y += 110;
   ctx.fillStyle = "black";
