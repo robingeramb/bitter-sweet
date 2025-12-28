@@ -378,7 +378,7 @@ async function setupShoppingCart(shoplight: any): Promise<void> {
     (shoppingCartBody as any).threemesh = shoppingCart; // FIX: Verknüpfe den Physik-Körper mit dem 3D-Modell.
 
     // NEU: Debugger für den Einkaufswagen aktivieren
-    shoppingCartDebugMesh = createCannonDebugger(scene, shoppingCartBody);
+    // shoppingCartDebugMesh = createCannonDebugger(scene, shoppingCartBody);
     world.addBody(shoppingCartBody);
   }
 }

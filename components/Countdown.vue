@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- NEU: Video-Ladebildschirm -->
-    <!-- <VideoLoader v-if="showVideoLoader" :videos="preloadedVideoUrls" @video-finished="handleVideoFinish" /> -->
+    <VideoLoader v-if="showVideoLoader" :videos="preloadedVideoUrls" @video-finished="handleVideoFinish" />
     <!-- Fullscreen Start Screen -->
     <div
       v-if="!gameOver && !clockStart"
@@ -252,7 +252,7 @@ const startGame = async () => {
   emit("startSetup");
   started.value = true;
   // The video loader will now be shown and will emit 'video-finished' when it's done.
-  handleVideoFinish(); // KORREKTUR: Entfernt, damit das Video nicht sofort übersprungen wird.
+  // handleVideoFinish(); // KORREKTUR: Entfernt, damit das Video nicht sofort übersprungen wird.
 };
 
 // NEU: Logik, um den Ladebildschirm zu beenden

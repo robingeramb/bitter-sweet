@@ -48,11 +48,11 @@
       :scrollVal="scrollValue"
       :faceDisplay="faceDisplayRef"
     />
-    <!--
+    
     <Story
       v-if="variablesStore.showInnerBody"
       :sugarAmount="shoppingCartStore.getSugarScore() / 3"
-    />-->
+    />
   </div>
 </template>
 
