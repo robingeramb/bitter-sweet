@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createProducts } from "./createProducts";
 
 export async function createShelve(
   height: number,

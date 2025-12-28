@@ -49,82 +49,84 @@
 </template>
 
 <script lang="ts" setup>
+import {
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  defineProps,
+  defineExpose,
+} from "vue";
 import gsap from "gsap";
+
 interface Props {
-  consList: Array<Object>;
+  consList: Array<any>;
+  sugarAmount?: number; // Hinzugefügt, falls von außen gesteuert
 }
+
 const props = defineProps<Props>();
 
-onMounted(() => {
-  if (normalCont.value.scrollHeight >= window.innerHeight - 400) {
-    normalCont.value.classList.add("overflow-y-scroll");
+// Refs für die DOM-Elemente
+const shadowCont = ref<HTMLElement | null>(null);
+const normalCont = ref<HTMLElement | null>(null);
+
+// Falls sugarCounter von den Props kommt oder lokal ist:
+const sugarCounter = ref(props.sugarAmount || 0);
+
+/**
+ * Resize Logik
+ */
+function resize() {
+  if (normalCont.value) {
+    if (normalCont.value.scrollHeight >= window.innerHeight - 400) {
+      normalCont.value.classList.add("overflow-y-scroll");
+    } else {
+      normalCont.value.classList.remove("overflow-y-scroll");
+    }
   }
-});
-
-window.addEventListener("resize", () => {
-  if (normalCont.value.scrollHeight >= window.innerHeight - 400) {
-    normalCont.value.classList.add("overflow-y-scroll");
-  } else {
-    normalCont.value.classList.remove("overflow-y-scroll");
-  }
-});
-
-const shadowCont = ref();
-const normalCont = ref();
-
-function calculatePercent() {
-  const maximum = 50;
-  let sugarAmount = sugarCounter.value;
-  let percent = (Math.round(sugarAmount / 3) / maximum) * 100;
-
-  return percent;
 }
 
-function startFadeIn(totalTime: number) {
-  const elements = normalCont.value?.querySelectorAll(".opacity-0");
+/**
+ * Lifecycle Management (Event Listener Korrektur)
+ */
+onMounted(() => {
+  // Initialer Check
+  resize();
+  // Listener registrieren
+  window.addEventListener("resize", resize);
+});
+
+onBeforeUnmount(() => {
+  // Listener sauber entfernen
+  window.removeEventListener("resize", resize);
+});
+
+/**
+ * Animationen
+ */
+function startFadeIn() {
+  const elements = normalCont.value?.querySelectorAll("li");
+  const elementsS = shadowCont.value?.querySelectorAll("li");
+
   if (elements) {
-    gsap.to(elements, {
+    gsap.to([elements, elementsS], {
       opacity: 1,
-      stagger: 0.3, // Zeitverzögerung zwischen den Elementen
-      duration: 0.75, // Dauer der Animation pro Element
-    });
-  }
-
-  const elementsS = shadowCont.value?.querySelectorAll(".opacity-0");
-
-  if (elementsS) {
-    gsap.to(elementsS, {
-      opacity: 1,
-      stagger: 0.3, // Zeitverzögerung zwischen den Elementen
-      duration: 0.75, // Dauer der Animation pro Element
+      stagger: 0.15,
+      duration: 0.75,
+      ease: "power2.out",
     });
   }
 }
 
 function fadeBack(totalTime: number) {
-  const elements = normalCont.value?.querySelectorAll(".opacity-0");
+  const elements = normalCont.value?.querySelectorAll("li");
+  const elementsS = shadowCont.value?.querySelectorAll("li");
 
   if (elements) {
-    const totalElements = elements.length;
-
-    gsap.to(elements, {
+    gsap.to([elements, elementsS], {
       opacity: 0,
-      stagger: (index) =>
-        (totalElements - 1 - index) * (totalTime / totalElements), // Umgekehrte Verzögerung
-      duration: 0.5, // Dauer der Animation pro Element
-    });
-  }
-
-  const elementsS = shadowCont.value?.querySelectorAll(".opacity-0");
-
-  if (elementsS) {
-    const totalElements = elements.length;
-
-    gsap.to(elementsS, {
-      opacity: 0,
-      stagger: (index) =>
-        (totalElements - 1 - index) * (totalTime / totalElements), // Umgekehrte Verzögerung
-      duration: 0.5, // Dauer der Animation pro Element
+      stagger: 0.1,
+      duration: 0.5,
+      ease: "power2.in",
     });
   }
 }

@@ -489,6 +489,7 @@ const getForegroundStyle = (depth: number) => {
 // Animations-Loop mit sanfter Interpolation und Performance-Optimierung
 const animateParticles = () => {
   const loop = (time: number) => {
+    //console.log("Loop");
     if (animationStartTime === null) {
       animationStartTime = time;
     }
@@ -778,7 +779,9 @@ const triggerSugarParticles = () => {
 };
 
 // NEU: Hilfsfunktion zum Laden von Audio und Ermitteln der Dauer
-const prepareAudio = (filename: string): Promise<{ audio: HTMLAudioElement, duration: number }> => {
+const prepareAudio = (
+  filename: string
+): Promise<{ audio: HTMLAudioElement; duration: number }> => {
   return new Promise((resolve) => {
     const audio = new Audio(`/voices/${filename}.mp3`);
     audio.onloadedmetadata = () => {
@@ -801,7 +804,7 @@ const playVoiceOver = (audio: HTMLAudioElement) => {
     currentVoiceOver.value.currentTime = 0;
   }
   currentVoiceOver.value = audio;
-  audio.play().catch(e => console.warn("Voiceover play failed", e));
+  audio.play().catch((e) => console.warn("Voiceover play failed", e));
 };
 
 // NEU: GSAP-Animation für das Intro
@@ -847,12 +850,12 @@ const runIntroAnimation = async () => {
   // Intro Animation
   // 1. Text wird größer (winzig -> groß) im Dunkeln
   tl.to(introText.value, {
-      scale: 1.1,
-      opacity: 1,
-      filter: "blur(0px)",
-      duration: 4.0, // Langsamerer Anflug
-      ease: "power2.out",
-    })
+    scale: 1.1,
+    opacity: 1,
+    filter: "blur(0px)",
+    duration: 4.0, // Langsamerer Anflug
+    ease: "power2.out",
+  })
     // 2. Intro-Text und Overlay faden aus (Szene enthüllen)
     .to([introOverlay.value, introText.value], {
       opacity: 0,
@@ -876,12 +879,13 @@ const runIntroAnimation = async () => {
         gsap.delayedCall(zoomDuration / 1000, startHeartbeatAnimation);
 
         // NEU: Zoom-Animation via GSAP für eine bessere Kurve
-        gsap.fromTo(perspective, 
+        gsap.fromTo(
+          perspective,
           { value: 6000 }, // Startwert verringert (weniger flach), um den "toten Punkt" am Anfang zu vermeiden
-          { 
-            value: 1200, 
-            duration: zoomDuration / 1000, 
-            ease: "expo.out" // Expo Out sorgt für einen schnellen Start und sanftes Landen
+          {
+            value: 1200,
+            duration: zoomDuration / 1000,
+            ease: "expo.out", // Expo Out sorgt für einen schnellen Start und sanftes Landen
           }
         );
       },
@@ -1051,10 +1055,7 @@ const runIntroAnimation = async () => {
       },
       "-=1.0"
     )
-    .to(
-      {}, 
-      { duration: textPartsData[textPartsData.length - 1].duration }
-    ) // Letzten Text halten
+    .to({}, { duration: textPartsData[textPartsData.length - 1].duration }) // Letzten Text halten
 
     // 9. Alles ausblenden und "Next"-Button zeigen
     .to(textEl, {

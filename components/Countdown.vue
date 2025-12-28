@@ -182,7 +182,9 @@
       "
       class="fixed top-20 left-1/2 -translate-x-1/2 pointer-events-none"
     >
-      <div class="bg-gray-900 bg-opacity-50 text-white px-5 py-2 rounded-full text-sm font-medium animate-subtle-bounce">
+      <div
+        class="bg-gray-900 bg-opacity-50 text-white px-5 py-2 rounded-full text-sm font-medium animate-subtle-bounce"
+      >
         Go to checkout and click to pay
       </div>
     </div>
@@ -228,6 +230,7 @@ const gameOver = ref(false);
 let interval = null;
 
 const startGame = async () => {
+  console.log("Starting game...");
   // 1. Lade-Status aktivieren (Button zeigt Spinner)
   isLoadingVideos.value = true;
 
@@ -323,7 +326,15 @@ const formattedTime = computed(() => {
     .toString()
     .padStart(2, "0");
   const seconds = (absTime % 60).toString().padStart(2, "0");
-  return `${time.value < 0 ? '-' : ''}${minutes}:${seconds}`;
+  return `${time.value < 0 ? "-" : ""}${minutes}:${seconds}`;
+});
+
+onMounted(() => {
+  // Reset the shopping done status when the component is mounted
+  started.value = false;
+
+  gameOver.value = false;
+  console.log("countdownMounted");
 });
 
 defineExpose({ restart });
@@ -391,7 +402,12 @@ body {
 }
 
 @keyframes subtle-bounce {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 </style>

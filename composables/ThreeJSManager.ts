@@ -20,6 +20,7 @@ export class ThreeJSManager {
   private frustumSize: number = 10;
   private textureLoader = new THREE.TextureLoader();
   private isWarmedUp: boolean = false;
+  private stop = false;
 
   // NEU: Diese Variable hält die Kamera, die aktuell gerendert wird
   private activeCamera: THREE.Camera;
@@ -86,6 +87,7 @@ export class ThreeJSManager {
     this.initCamera();
     this.elements.scene.add(this.elements.pivot);
     this.animate();
+    this.stop = false;
   }
 
   private initRenderer() {
@@ -212,7 +214,50 @@ export class ThreeJSManager {
     state.isAnimating = true;
   }
 
+  public resetTeeth(animated: boolean = true) {
+    const state = this.blendingState;
+
+    // Bestehende GSAP-Animationen auf dem blendUniform abbrechen
+    gsap.killTweensOf(state.blendUniform);
+    state.isAnimating = false;
+
+    if (animated) {
+      // Sanftes Zurücksetzen auf Weiß
+      gsap.to(state.blendUniform, {
+        value: 0.0,
+        duration: 2.0,
+        ease: "power2.inOut",
+        onUpdate: () => {
+          if (state.targetMaterial) {
+            const t = state.blendUniform.value;
+            // Roughness zurück zu 0.5 (Startwert)
+            state.targetMaterial.roughness = THREE.MathUtils.lerp(
+              state.startRoughness,
+              state.endRoughness,
+              t
+            );
+            // Farbe zurück zu Weiß (StartColor)
+            state.targetMaterial.color.lerpColors(
+              state.startColor,
+              state.endColor,
+              t
+            );
+          }
+        },
+      });
+    } else {
+      // Sofortiger Reset
+      state.blendUniform.value = 0.0;
+      if (state.targetMaterial) {
+        state.targetMaterial.roughness = state.startRoughness;
+        state.targetMaterial.color.copy(state.startColor);
+      }
+    }
+  }
+
   private animate = () => {
+    if (this.stop) return;
+    //console.log("renderLooop");
     requestAnimationFrame(this.animate);
     const state = this.blendingState;
 
@@ -253,6 +298,7 @@ export class ThreeJSManager {
 
   public dispose() {
     this.elements.renderer.dispose();
+    this.stop = true;
     this.blendingState.rottenBaseColorMap?.dispose();
   }
 }

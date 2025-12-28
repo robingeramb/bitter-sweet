@@ -2,7 +2,11 @@
   <div v-if="isVisible" class="end-screen-container">
     <!-- NEU: Hintergrund-Container mit Bild und Effekten -->
     <div class="background-container">
-      <img src="/parallax/Innenraum.png" class="background-image" alt="Hintergrund"/>
+      <img
+        src="/parallax/Innenraum.png"
+        class="background-image"
+        alt="Hintergrund"
+      />
       <div class="blur-vignette"></div>
       <div class="vignette"></div>
     </div>
@@ -13,7 +17,12 @@
     <p ref="endText" class="end-text" v-html="displayText"></p>
     <!-- KORREKTUR: Buttons sind jetzt getrennt für eine präzisere Positionierung -->
     <!-- "Retry shopping" Button -->
-    <button v-if="showButtons" @click="handleRetry" class="retry-button" :style="{ '--contour-color-rgb': contourColorRGB }">
+    <button
+      v-if="showButtons"
+      @click="useHandleRetry"
+      class="retry-button"
+      :style="{ '--contour-color-rgb': contourColorRGB }"
+    >
       Retry shopping
     </button>
 
@@ -21,34 +30,53 @@
     <button v-if="showButtons" @click="openTipsPopup" class="tips-button">
       Tips for healthier shopping
       <!-- NEU: Animierter Pfeil -->
-      <svg :class="{ 'rotate-arrow': showTipsPopup }" class="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+      <svg
+        :class="{ 'rotate-arrow': showTipsPopup }"
+        class="arrow-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+      >
+        <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
       </svg>
     </button>
 
     <!-- Pop-up für die Tipps -->
     <!-- KORREKTUR: v-show statt v-if für die Animation und ref für das Overlay -->
-    <div v-show="showTipsPopup" ref="popupOverlay" class="popup-overlay" @click="closeTipsPopup">
+    <div
+      v-show="showTipsPopup"
+      ref="popupOverlay"
+      class="popup-overlay"
+      @click="closeTipsPopup"
+    >
       <!-- KORREKTUR: ref für den Inhalt und @click.stop -->
       <div ref="popupContent" class="popup-content" @click.stop>
         <!-- KORREKTUR: Ruft jetzt closeTipsPopup auf -->
-        <button @click="closeTipsPopup" class="close-popup-button">&times;</button>
+        <button @click="closeTipsPopup" class="close-popup-button">
+          &times;
+        </button>
         <h2>Tips for Less Sugar</h2>
-        <ul ref="tipList"> <!-- NEU: Ref für die Liste der Tipps -->
+        <ul ref="tipList">
+          <!-- NEU: Ref für die Liste der Tipps -->
           <li>
-            <strong>Read the labels:</strong> Check the "sugars" line in the nutritional information per 100g. Less than 5g is okay, everything over that may already be too much.
+            <strong>Read the labels:</strong> Check the "sugars" line in the
+            nutritional information per 100g. Less than 5g is okay, everything
+            over that may already be too much.
           </li>
           <li>
-            <strong>Avoid processed foods:</strong> They often contain hidden sugars with names like glucose, fructose, sucrose, or maltodextrin.
+            <strong>Avoid processed foods:</strong> They often contain hidden
+            sugars with names like glucose, fructose, sucrose, or maltodextrin.
           </li>
           <li>
-            <strong>Choose whole foods:</strong> Fruits, vegetables, and whole grains are your best friends.
+            <strong>Choose whole foods:</strong> Fruits, vegetables, and whole
+            grains are your best friends.
           </li>
           <li>
-            <strong>Drink water:</strong> Avoid sugary drinks like sodas, energy drinks, and even many fruit juices.
+            <strong>Drink water:</strong> Avoid sugary drinks like sodas, energy
+            drinks, and even many fruit juices.
           </li>
           <li>
-            <strong>Cook at home:</strong> This gives you full control over the ingredients and the amount of sugar.
+            <strong>Cook at home:</strong> This gives you full control over the
+            ingredients and the amount of sugar.
           </li>
         </ul>
       </div>
@@ -57,40 +85,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed } from 'vue';
-import gsap from 'gsap';
-import { SplitText } from 'gsap/SplitText';
+import { ref, onMounted, nextTick, computed } from "vue";
+import gsap from "gsap";
+import { SplitText } from "gsap/SplitText";
 import { useVariablesStore, useShoppingCartStore } from "~/stores/store";
 import { useRetry } from "~/composables/useRetry";
-
+const emit = defineEmits(["retry"]);
 // NEU: Props definieren, um den Zuckerwert von außen zu erhalten
 const props = defineProps({
   sugarAmount: {
     type: Number,
     required: true,
-    default: 50 // Ein Standardwert für den Fall, dass nichts übergeben wird
-  }
+    default: 50, // Ein Standardwert für den Fall, dass nichts übergeben wird
+  },
 });
-
+const { handleRetry } = useRetry();
 const variablesStore = useVariablesStore();
 const shoppingCartStore = useShoppingCartStore();
-const { handleRetry } = useRetry();
+function useHandleRetry() {
+  emit("retry");
+
+  handleRetry();
+}
 
 // NEU: Computed Property, die den Text basierend auf dem Zuckerwert auswählt
 const displayText = computed(() => {
   const dailyLimit = 25;
-  const percentageOver = Math.round(((props.sugarAmount - dailyLimit) / dailyLimit) * 100);
-  
+  const percentageOver = Math.round(
+    ((props.sugarAmount - dailyLimit) / dailyLimit) * 100
+  );
+
   if (percentageOver <= 0) {
     // Grün: Im Limit oder darunter
-    const percentageText = `<span class="percentage-green">${Math.abs(percentageOver)}%</span>`;
+    const percentageText = `<span class="percentage-green">${Math.abs(
+      percentageOver
+    )}%</span>`;
     return `You are ${percentageText} under the daily limit of 25g sugar. A perfect score! Well done.`;
   } else {
-    if (percentageOver <= 100) { 
+    if (percentageOver <= 100) {
       // Gelb: Bis zu 100% über dem Limit
       const percentageText = `<span class="percentage-yellow">${percentageOver}%</span>`;
       return `You have exceeded your daily sugar limit by ${percentageText} with your purchase. This has consequences in the long run. Please try again.`;
-    } else { // "high" ist alles darüber
+    } else {
+      // "high" ist alles darüber
       // Rot: Mehr als 100% über dem Limit
       const percentageText = `<span class="percentage-red">${percentageOver}%</span>`;
       return `You have exceeded your daily sugar limit by ${percentageText} with your purchase. This has serious consequences for your health. Please try again.`;
@@ -101,17 +138,18 @@ const displayText = computed(() => {
 // NEU: Computed Property, die die RGB-Werte für die Konturfarbe liefert
 const contourColorRGB = computed(() => {
   const dailyLimit = 25;
-  const percentageOver = Math.round(((props.sugarAmount - dailyLimit) / dailyLimit) * 100);
+  const percentageOver = Math.round(
+    ((props.sugarAmount - dailyLimit) / dailyLimit) * 100
+  );
 
   if (percentageOver <= 0) {
-    return '74, 222, 128'; // Grün (rgb für #4ade80)
+    return "74, 222, 128"; // Grün (rgb für #4ade80)
   } else if (percentageOver <= 100) {
-    return '250, 204, 21'; // Gelb (rgb für #facc15)
+    return "250, 204, 21"; // Gelb (rgb für #facc15)
   } else {
-    return '248, 113, 113'; // Rot (rgb für #f87171)
+    return "248, 113, 113"; // Rot (rgb für #f87171)
   }
 });
-
 
 const isVisible = ref(true); // Steuert die Sichtbarkeit der gesamten Komponente
 const endText = ref<HTMLElement | null>(null); // KORREKTUR: Nur noch ein Text-Ref
@@ -134,7 +172,7 @@ onMounted(() => {
 
   // Den Text-Container sichtbar machen, aber die Wörter darin verstecken
   gsap.set(targetText, { opacity: 1 });
-  const split = new SplitText(targetText as any, { type: 'words' }); // KORREKTUR: Type-Cast um TS-Fehler zu vermeiden
+  const split = new SplitText(targetText as any, { type: "words" }); // KORREKTUR: Type-Cast um TS-Fehler zu vermeiden
   gsap.set(split.words, { opacity: 0, y: 30 });
 
   // 1. Wörter fliegen nacheinander ein
@@ -142,40 +180,49 @@ onMounted(() => {
     opacity: 1,
     y: 0,
     duration: 0.6,
-    ease: 'power3.out',
+    ease: "power3.out",
     stagger: 0.1, // Verzögerung zwischen den Wörtern
     onStart: () => {
       // NEU: Sound abspielen, wenn die Animation startet
       if (whooshSound.value) {
         whooshSound.value.currentTime = 0; // Sound zurückspulen
-        whooshSound.value.play().catch((e: any) => console.error("Sound konnte nicht abgespielt werden:", e));
+        whooshSound.value
+          .play()
+          .catch((e: any) =>
+            console.error("Sound konnte nicht abgespielt werden:", e)
+          );
       }
-    }
-  })
-  // 3. Text bleibt für 3 Sekunden sichtbar
-  .to({}, { // Leeres Ziel, nur um Zeit zu gewinnen
-    duration: 3
-  })
-  // 3. Text wird kleiner und bewegt sich nach oben
-  .to(targetText, { // KORREKTUR: Die gespeicherte Variable verwenden, um Typ-Konflikte zu vermeiden.
-    y: '-28vh', // KORREKTUR: Endposition ist jetzt etwas tiefer
-    scale: 0.8, // Wird kleiner
-    duration: 1.5,
-    ease: 'power2.inOut',
-    onComplete: () => {
-      // 4. Buttons einblenden, nachdem der Text oben ist
-      // Die Wörter wieder zusammenfügen, um die Button-Positionierung nicht zu stören
-      split.revert();
-      showButtons.value = true;
     },
-  });
+  })
+    // 3. Text bleibt für 3 Sekunden sichtbar
+    .to(
+      {},
+      {
+        // Leeres Ziel, nur um Zeit zu gewinnen
+        duration: 3,
+      }
+    )
+    // 3. Text wird kleiner und bewegt sich nach oben
+    .to(targetText, {
+      // KORREKTUR: Die gespeicherte Variable verwenden, um Typ-Konflikte zu vermeiden.
+      y: "-28vh", // KORREKTUR: Endposition ist jetzt etwas tiefer
+      scale: 0.8, // Wird kleiner
+      duration: 1.5,
+      ease: "power2.inOut",
+      onComplete: () => {
+        // 4. Buttons einblenden, nachdem der Text oben ist
+        // Die Wörter wieder zusammenfügen, um die Button-Positionierung nicht zu stören
+        split.revert();
+        showButtons.value = true;
+      },
+    });
 });
 
 // KORREKTUR: Funktion zum Öffnen des Pop-ups mit Animation
 const openTipsPopup = () => {
   showTipsPopup.value = true;
   if (!popupOverlay.value || !popupContent.value || !tipList.value) return;
-  
+
   // NEU: Initial die Listenelemente verstecken
   gsap.set(tipList.value?.children, { opacity: 0, y: 10 });
 
@@ -184,14 +231,23 @@ const openTipsPopup = () => {
 
   tl.to(popupOverlay.value, { opacity: 1, duration: 0.3 })
     // KORREKTUR: .from() zu .fromTo() geändert, um das Wiederöffnen zu ermöglichen.
-    .fromTo(popupContent.value, 
+    .fromTo(
+      popupContent.value,
       { y: 50, scale: 0.95, opacity: 0 }, // from-Werte
-      { y: 0, scale: 1, opacity: 1, duration: 0.4, ease: 'power3.out' }, // to-Werte
-      "-=0.2")
-    .to(tipList.value.children, { 
-      opacity: 1, y: 0, stagger: 0.15, duration: 0.4, ease: 'power2.out' 
-    }, "-=0.2"); // Startet die Listen-Animation, während das Modal noch einfliegt
-
+      { y: 0, scale: 1, opacity: 1, duration: 0.4, ease: "power3.out" }, // to-Werte
+      "-=0.2"
+    )
+    .to(
+      tipList.value.children,
+      {
+        opacity: 1,
+        y: 0,
+        stagger: 0.15,
+        duration: 0.4,
+        ease: "power2.out",
+      },
+      "-=0.2"
+    ); // Startet die Listen-Animation, während das Modal noch einfliegt
 };
 
 // NEU: Funktion zum Schließen des Pop-ups mit Animation
@@ -203,7 +259,7 @@ const closeTipsPopup = () => {
     scale: 0.95,
     opacity: 0,
     duration: 0.3,
-    ease: 'power2.in',
+    ease: "power2.in",
   });
 
   gsap.to(popupOverlay.value, {
@@ -212,11 +268,9 @@ const closeTipsPopup = () => {
     delay: 0.1,
     onComplete: () => {
       showTipsPopup.value = false;
-    }
+    },
   });
 };
-
-
 </script>
 
 <style scoped>
@@ -253,7 +307,9 @@ const closeTipsPopup = () => {
   object-fit: cover;
   /* KORREKTUR: Der Blur wird jetzt direkt auf das Bild angewendet und es wird stärker skaliert */
   filter: blur(8px);
-  transform: scale(1.2); /* Stärker vergrößern, um die unscharfen Ränder aus dem Bild zu schieben */
+  transform: scale(
+    1.2
+  ); /* Stärker vergrößern, um die unscharfen Ränder aus dem Bild zu schieben */
 }
 
 .vignette {
@@ -262,7 +318,11 @@ const closeTipsPopup = () => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 60%, rgba(0,0,0,0.8) 100%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0) 60%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
   pointer-events: none;
 }
 
@@ -366,7 +426,6 @@ const closeTipsPopup = () => {
   transform: rotate(180deg);
 }
 
-
 @keyframes fadeIn {
   to {
     opacity: 1;
@@ -401,7 +460,8 @@ const closeTipsPopup = () => {
   opacity: 0; /* Startet unsichtbar für die Animation */
 }
 
-.popup-content { /* KORREKTUR: ref hinzugefügt */
+.popup-content {
+  /* KORREKTUR: ref hinzugefügt */
   background-color: #3a0c13; /* KORREKTUR: Angepasste Farbe */
   padding: 2rem 3rem;
   border-radius: 12px;
@@ -423,7 +483,8 @@ const closeTipsPopup = () => {
   cursor: pointer;
 }
 
-.popup-content h2 { /* NEU: Visuelle Hervorhebung der Überschrift */
+.popup-content h2 {
+  /* NEU: Visuelle Hervorhebung der Überschrift */
   margin-top: 0;
   color: #ff8a8a; /* Behält die Farbe bei */
   font-size: 1.8rem; /* Größere Schrift */
@@ -433,7 +494,8 @@ const closeTipsPopup = () => {
   letter-spacing: 0.05em; /* Etwas mehr Buchstabenabstand */
 }
 
-.popup-content strong { /* NEU: Visuelle Hervorhebung der Strong-Tags */
+.popup-content strong {
+  /* NEU: Visuelle Hervorhebung der Strong-Tags */
   color: #ffc0cb; /* Hellere, auffälligere Farbe */
   font-weight: bold;
   text-shadow: 0 0 5px rgba(255, 192, 203, 0.2);

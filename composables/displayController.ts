@@ -21,7 +21,9 @@ const messages: MessageLayout[] = [
     ],
   },
   {
-    lines: [{ text: "But who’s really paying for it?", size: 64, color: "white" }],
+    lines: [
+      { text: "But who’s really paying for it?", size: 64, color: "white" },
+    ],
   },
   {
     lines: [
@@ -74,6 +76,24 @@ export function initDisplayController(displayMesh: THREE.Mesh) {
 
 export function startAnimation() {
   transitionState = "FADING_OUT";
+}
+
+export function resetDisplayController() {
+  currentIndex = 0;
+
+  transitionState = "IDLE";
+  textOpacity = 1.0;
+  animationTimer = 0;
+
+  if (ctx && canvas) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (texture) {
+      texture.needsUpdate = true;
+    }
+  }
 }
 
 /**

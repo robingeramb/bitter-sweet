@@ -20,16 +20,16 @@ import {
   world,
   getPhysicObjects,
   getshoppingCartObjects,
-  groundMaterial, // NEU: groundMaterial importieren
-  bodiesToRemove, // NEU: Importiere die Liste der zu entfernenden Körper
-  shoppingCartMaterial, // NEU: shoppingCartMaterial importieren
+  groundMaterial,
+  bodiesToRemove,
   usePlayerBody,
+  restartGame,
   generateShoppingCartBody,
-  useCartControls, // NEU: Importieren, um die Wagen-Steuerung zu registrieren
-  useShoppingCartBody, // NEU: Setter-Funktion importieren
-  shelfMaterial, // NEU: Material für Wände importieren
-  COLLISION_GROUPS, // NEU: Kollisionsgruppen importieren
-} from "@/composables/useThree"; // NEU: Zentrales Material importieren
+  useCartControls,
+  useShoppingCartBody,
+  shelfMaterial,
+  COLLISION_GROUPS,
+} from "@/composables/useThree";
 import { shelves } from "@/composables/createShelves";
 import { createCannonDebugger } from "@/composables/cannonDebugger";
 import { useFirstPersonControls } from "@/composables/useFirstPersonControls";
@@ -51,40 +51,38 @@ interface Props {
   faceDisplay: Ref<any> | null | undefined;
 }
 
-const props = defineProps<Props>(); // FIX: defineProps ist jetzt importiert
+const props = defineProps<Props>();
 
-/* --- Reactive Variables and References --- */
-let selfCashoutState = true;
 let shoppingCart: THREE.Mesh | null = null;
 let cashRegister: THREE.Mesh;
 let _renderer: THREE.WebGLRenderer;
-let isCartFollowingPlayer = ref(true); // NEU: Steuert, ob der Wagen dem Spieler folgt.
+let isCartFollowingPlayer = ref(true);
 let _renderLoopId: number;
 let displayMesh: THREE.Mesh | null = null;
-let debugYPositions: number[] = []; // NEU: Array zum Speichern der Y-Positionen
-const MAX_DEBUG_Y_POSITIONS = 60; // NEU: Anzahl der zu speichernden Werte (z.B. 1 Sekunde bei 60 FPS)
+let debugYPositions: number[] = [];
+const MAX_DEBUG_Y_POSITIONS = 60;
 let _floor: THREE.Mesh;
 let _roof: THREE.Mesh;
 let clickable = ref(false);
 let cartTargetPosition = new THREE.Vector3();
-let smoothedCartTargetPosition = new THREE.Vector3(); // NEU: Geglättete Zielposition für den Wagen
+let smoothedCartTargetPosition = new THREE.Vector3();
 let playerBody: CANNON.Body | null = null;
-let shoppingCartBody: CANNON.Body | null = null; // NEU: Physik-Körper für den Einkaufswagen
-let supermarketSound: HTMLAudioElement | null = null; // NEU: Hintergrundsound
-let shoppingCartSound: HTMLAudioElement | null = null; // NEU: Einkaufswagen-Sound
-let grabSound: HTMLAudioElement | null = null; // NEU: Grab-Sound
+let shoppingCartBody: CANNON.Body | null = null;
+let supermarketSound: HTMLAudioElement | null = null;
+let shoppingCartSound: HTMLAudioElement | null = null;
+let grabSound: HTMLAudioElement | null = null;
 let shoppingCartDebugMesh: THREE.Object3D | null = null;
 
-const fixedTimeStep = 1 / 60; // Fester, empfohlener Timestep für die Physik
+const fixedTimeStep = 1 / 60;
 
-/* --- Constants --- */
 const floorLength = 20;
 const shelfLength = 0.5;
 const shelfHeight = 2;
 const shelfWidth = 2.5;
 const dist = 0.12;
 
-/* --- Composables --- */
+let stopLoop = false;
+
 const { initThree, cleanUpThree } = useThree();
 const canvas = computed(
   (): HTMLCanvasElement | null =>
@@ -92,14 +90,17 @@ const canvas = computed(
 );
 let fpControls: ReturnType<typeof useFirstPersonControls> | null = null;
 
-/* --- Watches --- */
-// HINWEIS: Dieser Watch ist jetzt nur noch für Interaktionen außerhalb des FPV/Select-Modus relevant.
-watch(() => [props.mousePos.x, props.mousePos.y], checkIntersects);
+let mouseWatcherStop: () => void;
+
+// 2. Watcher zuweisen
+mouseWatcherStop = watch(
+  () => [props.mousePos.x, props.mousePos.y],
+  checkIntersects
+);
 
 function checkIntersects() {
-  let intersects: Intersection[] = []; // KORREKTUR: Expliziten Typ verwenden
+  let intersects: Intersection[] = [];
   const selectedProduct = getSelectedProduct();
-  // Diese Funktion ist jetzt nur noch für das Hovern im productView oder für zukünftige UI-Elemente zuständig.
   if (productView.value && selectedProduct.value) {
     mouse.x = (props.mousePos.x / window.innerWidth) * 2 - 1;
     mouse.y = -(props.mousePos.y / window.innerHeight) * 2 + 1;
@@ -337,8 +338,23 @@ async function setupDoor(): Promise<void> {
 }
 
 async function setupShoppingCart(shoplight: any): Promise<void> {
+  if (shoppingCartBody) {
+    world.removeBody(shoppingCartBody);
+    // @ts-ignore - Falls du Cannon-Debugger nutzt, auch dort entfernen
+    shoppingCartBody.threemesh = null;
+  }
+  // 1. ALTES MODELL ENTFERNEN (Falls vorhanden)
+  console.log(shoppingCart);
+  if (shoppingCart) {
+    scene.remove(shoppingCart);
+  }
+
+  if (shoppingCartDebugMesh) {
+    scene.remove(shoppingCartDebugMesh);
+  }
+
+  // 3. TEXTUREN ERSTELLEN
   const metal = createTexture(
-    // @ts-ignore
     "shoppingCart",
     1,
     true,
@@ -354,32 +370,49 @@ async function setupShoppingCart(shoplight: any): Promise<void> {
   metal.envMap = shoplight;
   metal.envMapIntensity = 0.1;
 
-  shoppingCart = (await loadModel("shoppingcart.glb")) as THREE.Mesh;
+  // 4. NEUES MODELL LADEN
+  // Wichtig: await abwarten, bevor die Variable shoppingCart neu zugewiesen wird!
+  const loadedModel = (await loadModel("shoppingcart.glb")) as THREE.Mesh;
+
+  // Falls das Modell in einer anderen Szene feststeckt (z.B. durch den Loader)
+  if (loadedModel.parent) {
+    loadedModel.parent.remove(loadedModel);
+  }
+
+  shoppingCart = loadedModel;
+
   if (shoppingCart) {
     shoppingCart.scale.set(0.01, 0.01, 0.01);
-    // Die Position wird in onMounted gesetzt, um sicherzustellen, dass sie mit den Zielpositionen übereinstimmt.
+
     shoppingCart.traverse((child) => {
       child.castShadow = true;
+      child.name = "shoppingCartPart";
       if ("material" in child) {
         (child as THREE.Mesh).material = metal;
       }
     });
+    console.log(shoppingCart);
+    shoppingCart.name = "shoppingCart";
     scene.add(shoppingCart);
+    shoppingCart.scale.set(0.01, 0.01, 0.01);
+    shoppingCart.updateMatrix();
+    shoppingCart.updateMatrixWorld(true);
 
-    // NEU: Erstelle den physikalischen Körper für den Einkaufswagen
+    // 5. PHYSIK NEU AUFSETZEN
     shoppingCartBody = generateShoppingCartBody();
-    // KORREKTUR: Weise der Korb-Boden-Shape (die zweite Shape, Index 1) eine eindeutige ID zu,
-    // damit wir sie bei der Kollision sicher identifizieren können.
-    shoppingCartBody.shapes[1].id = 99; // Eindeutige ID für den Korb-Boden
+    shoppingCartBody.shapes[1].id = 99;
+    shoppingCartBody.position.set(0, -0.9, 3);
+    shoppingCartBody.allowSleep = false;
 
-    shoppingCartBody.position.set(0, -0.9, 3); // Setze die Startposition
-    shoppingCartBody.allowSleep = false; // KORREKTUR: Verhindert, dass der Einkaufswagen einschläft und Kollisionen verpasst.
-    useShoppingCartBody(shoppingCartBody); // KORREKTUR: Verwende die Setter-Funktion, um den Körper global verfügbar zu machen.
-    (shoppingCartBody as any).threemesh = shoppingCart; // FIX: Verknüpfe den Physik-Körper mit dem 3D-Modell.
+    useShoppingCartBody(shoppingCartBody);
+    (shoppingCartBody as any).threemesh = shoppingCart;
 
-    // NEU: Debugger für den Einkaufswagen aktivieren
-    // shoppingCartDebugMesh = createCannonDebugger(scene, shoppingCartBody);
+    shoppingCartDebugMesh = createCannonDebugger(scene, shoppingCartBody);
     world.addBody(shoppingCartBody);
+
+    console.log(
+      "✅ Neuer Shopping Cart erfolgreich erstellt und zur Szene hinzugefügt"
+    );
   }
 }
 
@@ -445,7 +478,7 @@ let firstFrame = true;
 
 function renderLoop(): void {
   const deltaTime = clock.getDelta();
-
+  //console.log("renderLooop");
   if (firstFrame) {
     if (shoppingCart) {
       const forwardFirst = new THREE.Vector3(0, 0, -1).applyQuaternion(
@@ -467,6 +500,7 @@ function renderLoop(): void {
       firstFrame = false;
     }
   }
+
   // NEU: DEBUG: Y-Positionen am Anfang des Render-Loops
   if (playerBody && !variablesStore.cashoutStart) {
     debugYPositions.push(playerBody.position.y);
@@ -677,7 +711,7 @@ function renderLoop(): void {
       hoveredProduct.value = undefined;
     }
   }
-  if (!variablesStore.cashoutFinished) {
+  if (!variablesStore.cashoutFinished && stopLoop == false) {
     _renderLoopId = requestAnimationFrame(renderLoop);
   }
 }
@@ -720,28 +754,27 @@ function resumeCartFollowing(): void {
 }
 /* --- Lifecycle Hooks --- */
 onMounted(() => {
+  console.log("Box.vue mounted - setupScene starten");
+
+  stopLoop = false;
+  isCartFollowingPlayer.value = true;
+  clickable.value = false;
+
   if (canvas.value) {
-    // 1. Leichte Three.js-Initialisierung (ohne Modelle) - Dies setzt die Startposition der Kamera.
     const { renderer } = initThree("mountId");
     _renderer = renderer;
 
-    // NEU: Mache die Funktionen zur Wagen-Steuerung global verfügbar.
     useCartControls(pauseCartFollowing, resumeCartFollowing);
 
-    // NEU: Physik für den Boden initialisieren
     setupFloorPhysics(); // FIX: canvas.value wird jetzt geprüft
     setupWallPhysics(); // NEU: Physik für die Wände initialisieren
 
-    // 2. FPV-Steuerung sofort initialisieren und verbinden
-    // KORREKTUR: Stelle sicher, dass canvas.value existiert, bevor es verwendet wird.
     if (!canvas.value) return;
     fpControls = useFirstPersonControls(camera, canvas.value);
     fpControls.connect(); // Wichtig: fpControls.update() muss jetzt manuell im renderLoop aufgerufen werden
 
-    // NEU: Mache fpControls global verfügbar für den Klick-Handler
     (window as any).fpControls = fpControls;
 
-    // 4. Render-Loop starten
     _renderLoopId = requestAnimationFrame(renderLoop);
 
     // 5. Klick-Events für Interaktionen beibehalten
@@ -754,18 +787,11 @@ onMounted(() => {
     _renderer.setSize(window.innerWidth, window.innerHeight);
     _renderer.setPixelRatio(2);
 
-    // KORREKTUR: Kamera beim Start geradeaus schauen lassen.
-    // KORREKTUR: Die Kamera-Augenhöhe an die neue Spieler-Startposition anpassen.
     camera.lookAt(0, camera.position.y, camera.position.z - 1);
 
-    // KORREKTUR: Die initiale Position des Wagens so setzen, dass sein tiefster Punkt auf dem Boden (Y=-0.5) steht.
-    // KORREKTUR: Setze den Wagen leicht über den Boden, um Startkollisionen zu vermeiden.
     const initialCartPos = new THREE.Vector3(0, -0.9, camera.position.z - 1.0); // KORREKTUR: An neue Bodenhöhe anpassen.
     if (shoppingCart) shoppingCart.position.copy(initialCartPos);
-    // if (shoppingCartBody)
-    // shoppingCartBody.position.copy(initialCartPos as unknown as CANNON.Vec3);
 
-    // KORREKTUR: Spieler-Kollisionskörper als Box statt Kapsel, um das "Hochrutschen" an Wänden zu verhindern.
     const playerRadius = 0.3;
     const playerHeight = 1.8;
     // Box nimmt halbe Ausmaße (HalfExtents)
@@ -779,60 +805,29 @@ onMounted(() => {
       linearDamping: 0.99, // KORREKTUR: Dämpfung, um das "Rutschen auf Eis" zu verhindern, ohne die Bewegung zu blockieren.
       angularDamping: 0.9, // NEU: Dämpfung für Rotationsstabilität
       allowSleep: false,
-      // Die Oberkante des Bodens ist bei Y = -0.5. Die Unterseite der Kugel soll bei Y = -0.5 starten.
-      // KORREKTUR: Spieler startet stabil über dem neuen Boden (Boden bei Y=-1.0)
+
       position: new CANNON.Vec3(camera.position.x, -0.9, camera.position.z),
     });
-    // KORREKTUR: Dem Spieler seine Kollisionsgruppe zuweisen, damit er mit dem Boden kollidiert.
-    // Er soll NUR mit dem Boden/Regalen kollidieren.
+
     playerBody.collisionFilterGroup = COLLISION_GROUPS.PLAYER;
-    // KORREKTUR: Der Spieler soll nur noch mit dem Boden und den Regalen kollidieren, nicht mehr mit dem Einkaufswagen.
     playerBody.collisionFilterMask =
       COLLISION_GROUPS.GROUND | COLLISION_GROUPS.SHELF;
 
-    // Füge die Formen zum Körper hinzu
     playerBody.addShape(playerShape, new CANNON.Vec3(0, 0, 0)); // Box zentriert
 
     playerBody.fixedRotation = true; // Verhindert, dass die Kapsel umfällt.
     world.addBody(playerBody);
-    // NEU: Event-Listener für Kollisionen direkt am Körper hinzufügen
 
     usePlayerBody(playerBody);
 
-    // KORREKTUR: Der 'click'-Listener empfängt nur MouseEvents. Die Tasten-Logik wird in den 'keydown'-Listener verschoben.
     window.addEventListener("click", (event: MouseEvent) => {
-      // KORREKTUR: Trenne die Logik für das Sperren der Steuerung von der Spiellogik.
-      // Wenn die Steuerung nicht gesperrt ist (z.B. nach Verlassen des selectMode),
-      // soll der Klick NUR die Steuerung sperren und keine andere Aktion auslösen.
-      // NEU: Der Klick soll den Cursor nur sperren, wenn wir nicht in der Produktansicht sind.
-      if (!fpControls?.controls.isLocked() && !productView.value) {
-        fpControls?.controls.lock();
-      } else {
-        // NEU: Sound abspielen, wenn ein Produkt angeklickt wird
-        if (hoveredProduct.value && grabSound && !productView.value) {
-          grabSound.currentTime = 0;
-          grabSound.play().catch(() => {});
-        }
-
-        // KORREKTUR: Die Bewegungssperre wurde entfernt. Klick-Events werden immer ausgeführt, wenn die Steuerung gesperrt ist.
-        clickEvent(event);
-        clickCheckout(event, cashRegister); // Vorerst deaktiviert, um den Fehler zu isolieren
-      }
+      onClick(event);
     });
 
     window.addEventListener("keydown", (event) => {
-      if (event.code === "Space" && selectMode.value) {
-        // Verhindert das Standardverhalten der Leertaste (z.B. Scrollen)
-        event.preventDefault();
-        selectMode.value = false;
-      }
-      // KORREKTUR: Die Logik für die 'P'-Taste gehört hierher.
-      if (event.key === "p" || event.key === "P") {
-        resetPositions();
-      }
+      keyDown(event);
     });
 
-    // NEU: Audio initialisieren
     supermarketSound = new Audio("/sound/supermarket.mp3");
     supermarketSound.loop = true;
     supermarketSound.volume = 0.5; // Leise Hintergrundatmosphäre
@@ -844,10 +839,8 @@ onMounted(() => {
     grabSound = new Audio("/sound/grab.mov");
     grabSound.volume = 0.5;
 
-    // Hintergrundsound starten
     if (!variablesStore.showInnerBody) {
       supermarketSound.play().catch(() => {
-        // Fallback für Autoplay-Blocker: Starten bei erster Interaktion
         const startAudio = () => {
           if (!variablesStore.showInnerBody && supermarketSound)
             supermarketSound.play();
@@ -860,6 +853,36 @@ onMounted(() => {
     }
   }
 });
+
+function onClick(event: MouseEvent) {
+  if (!fpControls?.controls.isLocked() && !productView.value) {
+    fpControls?.controls.lock();
+  } else {
+    if (hoveredProduct.value && grabSound && !productView.value) {
+      grabSound.currentTime = 0;
+      grabSound.play().catch(() => {});
+    }
+
+    clickEvent(event);
+    clickCheckout(event, cashRegister); // Vorerst deaktiviert, um den Fehler zu isolieren
+  }
+}
+
+function keyDown(event: KeyboardEvent) {
+  if (event.code === "Space" && selectMode.value) {
+    event.preventDefault();
+    selectMode.value = false;
+  }
+  // KORREKTUR: Die Logik für die 'P'-Taste gehört hierher.
+  if (event.key === "p" || event.key === "P") {
+    resetPositions();
+  }
+}
+
+function removeEventListeners() {
+  window.removeEventListener("click", onClick);
+  window.removeEventListener("keydown", keyDown);
+}
 
 watch(selectMode, (isSelectMode: boolean) => {
   if (isSelectMode) {
@@ -884,20 +907,11 @@ watch(selectMode, (isSelectMode: boolean) => {
       cartTargetPosition.copy(newCartPos);
       smoothedCartTargetPosition.copy(newCartPos);
 
-      // 4. (NEU) Richte den Wagen sofort korrekt aus.
-      // Der Griff soll zum Spieler zeigen, also um 180 Grad zur Blickrichtung gedreht.
       shoppingCart.rotation.y = Math.atan2(forward.x, forward.z) + Math.PI;
-
-      // 5. (NEU) Teleportiere den Physik-Körper des Wagens direkt an die neue Position,
-      // um einen sauberen Start im selectMode zu gewährleisten.
-      if (shoppingCartBody) {
-        // Die Logik zum Bewegen des Wagens wurde nach useMovePlayerTo verschoben, aber wir setzen sie hier trotzdem, um sicherzustellen, dass der Wagen an der richtigen Stelle ist.
-      }
     }
   }
 });
 
-// NEU: Watcher, um den Sound zu stoppen, wenn die Parallax-Szene (InnerBody) aktiv ist
 watch(
   () => variablesStore.showInnerBody,
   (show) => {
@@ -911,14 +925,46 @@ watch(
 );
 
 onBeforeUnmount(() => {
-  cancelAnimationFrame(_renderLoopId);
-  // NEU: Trenne die Event-Listener beim Verlassen der Komponente
-  if (fpControls) {
-    fpControls.disconnect();
+  console.log("Kritischer Cleanup...");
+
+  // 1. Loop sofort unterbrechen
+  stopLoop = true;
+  if (_renderLoopId) cancelAnimationFrame(_renderLoopId);
+
+  // 2. Watcher stoppen
+  if (mouseWatcherStop) mouseWatcherStop();
+
+  // 3. Audio hart stoppen und entladen
+  [supermarketSound, shoppingCartSound, grabSound].forEach((sound) => {
+    if (sound) {
+      sound.pause();
+      sound.removeAttribute("src"); // Entfernt die Datei-Referenz
+      sound.load();
+    }
+  });
+  firstFrame = false;
+  // 4. Event Listener entfernen
+  removeEventListeners();
+  window.removeEventListener("keydown", keyDown); // Sicherstellen, dass alles weg ist
+
+  // 5. Die Steuerung entkoppeln
+  fpControls?.disconnect();
+  (window as any).fpControls = null;
+
+  // 6. Den "Nuke"-Reset aus useThree aufrufen
+  restartGame(shoppingCart);
+
+  // 7. Renderer zerstören
+  if (_renderer) {
+    _renderer.dispose();
+    _renderer.forceContextLoss();
+    _renderer.domElement.replaceWith(_renderer.domElement.cloneNode()); // Canvas-Events löschen
   }
-  cleanUpThree(scene, _renderer);
-  supermarketSound?.pause();
-  shoppingCartSound?.pause();
+
+  // 8. Lokale Referenzen nullen (Garbage Collection helfen)
+  shoppingCart = null;
+  playerBody = null;
+  shoppingCartBody = null;
 });
 
 /* --- Exposed Functions --- */
