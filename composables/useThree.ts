@@ -150,14 +150,14 @@ export { createTexture } from "./createTexture";
 export { loadEXR } from "./loadEXR";
 import { disposeObject } from "@/utils/disposeUtils";
 
-export const scene = new THREE.Scene();
+export let scene = new THREE.Scene();
 markRaw(scene); // KORREKTUR: Verhindert, dass die Szene und ihre Kinder reaktiv werden.
 
 export const clockStart = ref(false);
 export const shouldUpdatePhysics = ref(false);
 export let _composer: EffectComposer;
 export let _outlinePass: OutlinePass;
-export const camera = new THREE.PerspectiveCamera(50, 200 / 200, 0.001, 30);
+export let camera = new THREE.PerspectiveCamera(50, 200 / 200, 0.001, 30);
 markRaw(camera); // KORREKTUR: Verhindert, dass Vue die Kamera reaktiv macht und den Proxy-Fehler auslöst.
 export const productSelection = new THREE.Group();
 export const productSelectionCannonBodies = new THREE.Group();
@@ -330,6 +330,7 @@ export function lockControls() {
 
 export function useThree() {
   function initThree(canvasMountId: string) {
+    console.log("Initialisiere Three.js Szene...");
     //spector.displayUI();
     const canvas = document.getElementById(canvasMountId)! as HTMLCanvasElement;
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
@@ -344,7 +345,7 @@ export function useThree() {
 
     // Add an object to illuminate
 
-    const renderer = new THREE.WebGLRenderer({
+    let renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
       stencil: true,
@@ -372,6 +373,7 @@ export function useThree() {
   function cleanUpThree(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
     disposeObject(scene);
     renderer.dispose();
+    console.log("Three.js Szene und Renderer aufgeräumt.");
   }
 
   return {
@@ -381,6 +383,7 @@ export function useThree() {
 }
 
 export function unloadObjectsByDistance(maxDistance: number) {
+  console.log("Entlade Objekte weiter als", maxDistance, "Meter");
   if (!scene || !camera) return;
 
   const cameraPos = camera.position;
@@ -401,7 +404,9 @@ export function unloadObjectsByDistance(maxDistance: number) {
     if (
       distance > maxDistance &&
       object.name !== "floor" &&
-      object.name !== "wall"
+      object.name !== "wall" &&
+      object.name !== "shoppingCart" &&
+      object.name !== "shoppingCartPart"
     ) {
       toRemove.push(object);
     }
@@ -489,4 +494,105 @@ export function createCannonDebugger(
   });
   scene.add(debugMesh);
   return debugMesh;
+}
+
+export function restartGame(shoppingCart) {
+  console.log("💣 Nuclear Reset: Szene wird komplett vernichtet...");
+
+  // 1. Alle laufenden Prozesse stoppen
+  clockStart.value = false;
+  shouldUpdatePhysics.value = false;
+
+  // 2. Physik-Welt (Cannon.js) komplett entleeren
+  while (world.bodies.length > 0) {
+    world.remove(world.bodies[0]);
+  }
+  world.constraints.forEach((c) => world.removeConstraint(c));
+  world.contactmaterials.length = 0;
+
+  sauceCheck.value = false;
+  noodelsCheck.value = false;
+  snacksCheck.value = false;
+  drinksCheck.value = false;
+  drinksCount.value = 0;
+
+  // 3. Three.js Szene & VRAM (Grafikspeicher) säubern
+  // Wir nutzen eine Kopie des Arrays, um sicher zu löschen
+  const objects = [...scene.children];
+  scene.remove(shoppingCart);
+  /*shoppingCart.traverse((node: any) => {
+    if (node.isMesh) {
+      node.geometry?.dispose();
+      if (node.material) {
+        if (Array.isArray(node.material)) {
+          node.material.forEach((m) => m.dispose());
+        } else {
+          node.material.dispose();
+        }
+      }
+    }
+  });*/
+  objects.forEach((child) => {
+    scene.remove(child);
+
+    // Rekursives Löschen von Geometrien und Texturen aus der GPU
+    /*child.traverse((node: any) => {
+      if (node.isMesh) {
+        node.geometry?.dispose();
+        if (node.material) {
+          if (Array.isArray(node.material)) {
+            node.material.forEach((m) => m.dispose());
+          } else {
+            node.material.dispose();
+          }
+        }
+      }
+    });*/
+  });
+
+  const objectsInCart = [...productSelection.children];
+  objectsInCart.forEach((child) => {
+    productSelection.remove(child);
+
+    // Rekursives Löschen von Geometrien und Texturen aus der GPU
+    child.traverse((node: any) => {
+      if (node.isMesh) {
+        node.geometry?.dispose();
+        if (node.material) {
+          if (Array.isArray(node.material)) {
+            node.material.forEach((m) => m.dispose());
+          } else {
+            node.material.dispose();
+          }
+        }
+      }
+    });
+  });
+  // 4. Kamera auf absolute Werkseinstellung
+  camera.near = 0.1;
+  camera.far = 1000; // Zurück auf Standard-Sichtweite
+  camera.fov = 75;
+  camera.position.set(0, 1.3, 4);
+  camera.rotation.set(0, 0, 0);
+  camera.updateProjectionMatrix();
+
+  // 5. Alle internen Tracking-Listen leeren
+  getPhysicObjects().clear();
+  getshoppingCartObjects().clear();
+  productsInCart.clear();
+  debugMeshes.clear();
+  bodiesToRemove.clear();
+
+  // 6. Vue-States (Checklisten etc.) zurücksetzen
+  taskDone.value = false;
+  selectMode.value = false;
+  productView.value = false;
+
+  // Hier alle deine Checklist-Refs einfügen (sauceCheck, drinksCount etc.)
+  // resetChecklist();
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(50, 200 / 200, 0.001, 30);
+
+  console.log("✨ Szene ist jetzt absolut leer. Bereit für setupScene().");
+  unlockControls();
 }

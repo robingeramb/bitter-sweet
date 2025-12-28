@@ -43,6 +43,7 @@ export const useVariablesStore = defineStore("variables", () => {
   const showReceiptDone = ref(false);
   const cursorFree = ref(false);
   const mouthOpen = ref(false);
+  ad;
   const cashoutStart = ref(false);
   const cashoutFinished = ref(false);
   const showInnerBody = ref(false);
@@ -69,10 +70,15 @@ export const useVariablesStore = defineStore("variables", () => {
 
   function updateShowInnerBody(newValue: boolean) {
     showInnerBody.value = newValue; // Sicherstellen, dass es eine Zahl ist
+    console.log("showInnerBody updated to:", newValue);
   }
 
   function updateShowTeeth(newValue: boolean) {
     showTeeth.value = newValue; // Sicherstellen, dass es eine Zahl ist
+  }
+
+  function updateCursorFree(newValue: boolean) {
+    cursorFree.value = newValue; // Sicherstellen, dass es eine Zahl ist
   }
 
   function updateShowReceiptDone(newValue: boolean) {
@@ -93,6 +99,7 @@ export const useVariablesStore = defineStore("variables", () => {
   // Was die Store-Instanz nach außen gibt
   return {
     cursorFree,
+    updateCursorFree,
     playerInMotion,
     updatePlayerMotion,
     showReceiptDone,

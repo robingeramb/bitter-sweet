@@ -21,6 +21,14 @@ const props = defineProps<Props>();
 // References
 const sugarSceneContainer = ref<HTMLElement | null>(null);
 
+function resize(
+  sugarCamera: THREE.PerspectiveCamera,
+  sugarRenderer: THREE.WebGLRenderer
+) {
+  sugarCamera.aspect = window.innerWidth / window.innerHeight;
+  sugarCamera.updateProjectionMatrix();
+  sugarRenderer.setSize(window.innerWidth, window.innerHeight);
+}
 // Setup sugarScene, physics, and cubes
 onMounted(() => {
   const sugarScene = new THREE.Scene();
@@ -142,6 +150,7 @@ onMounted(() => {
   // Animation loop
   const clock = new THREE.Clock();
   const animate = () => {
+    console.log("SugarCubesanimate");
     const delta = clock.getDelta();
 
     // Update physics
@@ -160,10 +169,12 @@ onMounted(() => {
   animate();
 
   // Resize handler
-  window.addEventListener("resize", () => {
-    sugarCamera.aspect = window.innerWidth / window.innerHeight;
-    sugarCamera.updateProjectionMatrix();
-    sugarRenderer.setSize(window.innerWidth, window.innerHeight);
+  window.addEventListener("resize", resize(sugarCamera, sugarRenderer));
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", () => {
+    resize;
   });
 });
 </script>

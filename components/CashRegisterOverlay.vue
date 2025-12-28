@@ -3,7 +3,7 @@
     <Button
       class="absolute z-50 left-1/2 -translate-x-1/2 bottom-6"
       :text="'Continue'"
-      v-if="!variablesStore.showInnerBody && !buttonClicked"
+      v-if="!buttonClicked"
       @click="cameraTurn"
     />
   </div>

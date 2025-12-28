@@ -224,6 +224,7 @@ export class ARController {
 
     this.running = true;
     const loop = async () => {
+      //console.log("ARLoop");
       if (!this.running) return;
       try {
         const ts = performance.now();
@@ -383,6 +384,28 @@ export class ARController {
         5
       ).toFixed(0)}px`;
     }
+  }
+
+  public resetToDefault() {
+    // 1. Interne Parameter zurücksetzen
+    this.debugParams.offsetX = 0;
+    this.debugParams.offsetY = 0;
+    this.debugParams.offsetZ = 0;
+    this.debugParams.scaleFactorY = 6.0;
+    this.debugParams.magicFactorY = 9.5;
+    this.debugParams.magicFactorX = 13.3;
+
+    // 2. GUI visuell aktualisieren, falls vorhanden
+    if (this.gui) {
+      this.gui.controllers.forEach((c) => c.updateDisplay());
+    }
+
+    // 3. Falls wir im Freeze-Zustand sind, Update erzwingen
+    if (!this.running && this.lastLandmarks) {
+      this.updatePlacement(this.lastLandmarks);
+    }
+
+    console.log("AR Controller Debug-Values reset to default.");
   }
 
   public freeze(): THREE.Vector3 | null {

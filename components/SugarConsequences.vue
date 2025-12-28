@@ -72,6 +72,7 @@ let threeJSManager: ThreeJSManager | null = null;
 const emit = defineEmits<{
   (e: "sequenceCompleted"): void;
   (e: "animateTeeth"): void;
+  (e: "animateTeethBack"): void;
 }>();
 
 interface Props {
@@ -284,11 +285,7 @@ function startInfoSequence(startIndex: number = 0) {
 
   // Bestimme das Level für die Dateinamen
   const level = SUGAR_LEVELS.find((l) => props.sugarValue <= l.max);
-  const maxVal = level
-    ? level.max === Infinity
-      ? "Inf"
-      : level.max
-    : "25";
+  const maxVal = level ? (level.max === Infinity ? "Inf" : level.max) : "25";
 
   // Ablauf der Schritte:
   async function runStep(step: number) {
@@ -370,9 +367,14 @@ function finishSequence() {
 watch(
   () => props.mouthOpen,
   (isOpen) => {
+    console.log("Mouth open changed:", isOpen, "Stage:", stage.value);
     if (props.sugarValue > 50 && teethAnimated === false && isOpen) {
       emit("animateTeeth");
       console.log("Teeth animation triggered.SugarCOnsequences");
+      teethAnimated = true;
+    } else if (props.sugarValue <= 50 && teethAnimated === false && isOpen) {
+      // Reset teeth animation state if sugar value goes back to 50 or below
+      emit("animateTeethBack");
       teethAnimated = true;
     }
     // 1. Waiting Phase: Mund muss 1 Sekunde offen bleiben

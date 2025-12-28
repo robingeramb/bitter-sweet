@@ -17,6 +17,7 @@
       :mouthOpen="variablesStore.mouthOpen"
       @sequenceCompleted="handleSequenceComplete"
       @animateTeeth="animateTeeth"
+      @animateTeethBack="animateTeethBack"
     />
     <!---->
     <div class="szene" v-if="!endScreen">
@@ -34,33 +35,70 @@
     ></div>
 
     <Countdown
-      v-if="!endScreen"
+      v-if="!endScreen && !variablesStore.cashoutStart"
       ref="countdown"
+      :key="boxKey"
       class="z-20"
       @startSetup="startSetup"
     />
 
     <Box
       v-if="!endScreen"
+      :key="boxKey"
       ref="threeJS"
       class="-z-10"
       :mousePos="mousePosition"
       :scrollVal="scrollValue"
       :faceDisplay="faceDisplayRef"
     />
-    <!--
+
     <Story
       v-if="variablesStore.showInnerBody"
       :sugarAmount="shoppingCartStore.getSugarScore() / 3"
-    />-->
+      @retry="fullRetry"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { useVariablesStore, useShoppingCartStore } from "~/stores/store";
+import { resetDisplayController } from "~/composables/displayController";
 import gsap from "gsap";
 const variablesStore = useVariablesStore();
 const shoppingCartStore = useShoppingCartStore();
+
+const fullRetry = () => {
+  // 1. Die globale Store-Logik ausführen
+  // Falls du den ARController wie im vorigen Schritt hast, hier mitgeben
+  console.log("retry");
+  resetDisplayController();
+  // 2. Die Box-Komponente hart neu laden
+  reloadBox();
+  removeListeners();
+  // 3. Optional: Weitere UI-Resets
+  if (countdown.value) {
+    //countdown.value.restart();
+  }
+
+  gsap.to(blend.value, {
+    opacity: 0,
+    delay: 0,
+    duration: 0,
+  });
+
+  // Reset der CSS-Animationen/Gsap-Tweens
+  gsap.set(".wrapper", { rotateY: 0 });
+  gsap.set(faceDisplayRef.value, { opacity: 0 });
+  window.addEventListener("mousemove", updateMousePosition);
+  window.addEventListener("keydown", handleKeyDown);
+};
+
+const boxKey = ref(0);
+
+// Funktion zum Neuladen
+function reloadBox() {
+  boxKey.value++; // Erhöhen des Keys erzwingt kompletten Neu-Render
+}
 
 const countdown = ref();
 const blend = ref<HTMLElement | null>(null); // Initialize blend reference
@@ -135,6 +173,12 @@ function animateTeeth() {
   console.log("Teeth animation triggered. app.vue");
   if (consequencesFace.value) {
     consequencesFace.value.animateTeeth();
+  }
+}
+
+function animateTeethBack() {
+  if (consequencesFace.value && variablesStore.isSecondPlaythrough) {
+    consequencesFace.value.animateTeethBack();
   }
 }
 

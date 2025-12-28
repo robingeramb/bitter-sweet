@@ -10,90 +10,97 @@ export async function createProducts(
   const products = new THREE.Group();
   const myStore = useProductsStore();
   const productOrigin = myStore.products;
-  // Berechnung der Breite eines Produkts
+
+  // Berechnung der verfügbaren Breite pro Produkt
   const l =
     (shelfLength - dist * (productList.length + 1)) / productList.length;
 
   for (let index = 0; index < productList.length; index++) {
-    const element = productOrigin[productList[index]];
-    let dimensions;
+    const productKey = productList[index];
+    const element = productOrigin[productKey];
+
+    if (!element) continue; // Falls das Produkt im Store nicht existiert
+
+    let dimensions = new THREE.Vector3(1, 1, 1);
     let product: THREE.Object3D;
+
     if (element.model) {
-      // Lade das Modell asynchron
+      // 1. Modell laden
       let mdl = await loadModel(element.model);
-      if (element.meshMode != false) {
+
+      if (element.meshMode !== false) {
+        // MESH MODE
         const mesh = mdl.isMesh
-          ? mdl
+          ? (mdl as THREE.Mesh)
           : (mdl.children.find((child) => child.isMesh) as THREE.Mesh);
 
         if (mesh && mesh.geometry) {
-          // Berechne die BoundingBox und passe die Skalierung an
           product = mesh.clone();
+
+          // WICHTIG: BoundingBox neu berechnen
           product.geometry.computeBoundingBox();
-          dimensions = product.geometry.boundingBox!.getSize(
-            new THREE.Vector3()
-          );
+          const box = new THREE.Box3().setFromObject(product);
+          box.getSize(dimensions);
+
           product.castShadow = true;
           product.receiveShadow = true;
-          const scaleFactor = 0.35 / dimensions.y;
-          product.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-          // Übersetze das gesamte Produkt (nicht nur die Geometrie)
+          // INFINITY CHECK: Verhindert Division durch 0
+          const height = dimensions.y > 0 ? dimensions.y : 0.35;
+          const scaleFactor = 0.35 / height;
+
+          product.scale.set(scaleFactor, scaleFactor, scaleFactor);
           product.position.set(index * (l + dist) + l / 2 + dist, 0, 0.1);
           product.rotation.y = Math.PI / 2;
+        } else {
+          product = new THREE.Group(); // Fallback
         }
       } else {
-        product = mdl;
+        // GROUP / SCENE MODE
+        product = mdl.clone(); // Klonen, um Original nicht zu verändern
+
+        // Präzisere BoundingBox für Gruppen
         const boundingBox = new THREE.Box3().setFromObject(product);
+        boundingBox.getSize(dimensions);
 
-        // Maße extrahieren
-        dimensions = new THREE.Vector3();
-        boundingBox.getSize(dimensions); // Gibt die Breite, Höhe und Tiefe zurück
+        let scale = element.scale || 0.35;
 
-        product.castShadow = true;
-        product.receiveShadow = true;
-        let scale = 0.35;
-        if (element.scale) {
-          scale = element.scale;
-        }
+        // INFINITY CHECK
+        const height = dimensions.y > 0 ? dimensions.y : scale;
+        const scaleFactor = scale / height;
 
-        const scaleFactor = scale / dimensions.y;
         product.scale.set(scaleFactor, scaleFactor, scaleFactor);
-        product.traverse((child) => {
-          child.userData.productName = element.productName;
-          child.userData.selectParent = true;
-          child.castShadow = true;
-          child.receiveShadow = true;
-        });
-        // Übersetze das gesamte Produkt (nicht nur die Geometrie)
-        product.position.set(index * (l + dist) + l / 2 + dist, scale / 2, 0.1);
 
+        product.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            child.userData.productName = element.productName;
+            child.userData.selectParent = true;
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        product.position.set(index * (l + dist) + l / 2 + dist, scale / 2, 0.1);
         if (element.rotation) {
           product.rotation.y = element.rotation;
         }
       }
     } else {
-      // Erstelle ein einfaches Box-Produkt
+      // BOX FALLBACK (Einfache Geometrie)
       const color = getRandomColor(0x000000);
-      const productMaterial = new THREE.MeshStandardMaterial({
-        color: color,
-      });
+      const productMaterial = new THREE.MeshStandardMaterial({ color });
       const productGeometry = new THREE.BoxGeometry(l, 0.3, 0.3);
-      //productGeometry.computeVertexNormals();
+
       productGeometry.translate(l / 2 + dist, 0.15, 0);
       product = new THREE.Mesh(productGeometry, productMaterial);
-
       product.position.set(index * (l + dist), 0, 0);
     }
 
+    // Metadaten setzen
     product.castShadow = true;
     product.receiveShadow = true;
+    product.userData = { ...element, finalLayer: true, dimensions };
 
-    // Setze die Position und füge Daten hinzu
-    product.userData = element;
-    product.userData.finalLayer = true;
-    product.userData.dimensions = dimensions;
-    // Füge das Produkt der Gruppe hinzu
     products.add(product);
   }
 

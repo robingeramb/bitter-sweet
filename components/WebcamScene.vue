@@ -69,6 +69,13 @@ function animateTeeth() {
   }
 }
 
+function animateTeethBack() {
+  if (threeJSManager) {
+    console.log("animateTeethBack aufgerufen WebcamScene");
+    threeJSManager.resetTeeth();
+  }
+}
+
 onMounted(async () => {
   await nextTick();
   const video = videoEl.value!;
@@ -141,13 +148,14 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  console.log("WebcamScene wird unmontiert, Ressourcen werden freigegeben.");
   stopWebcam();
   arController?.stop();
   threeJSManager?.dispose();
   resizeObserver?.disconnect();
 });
 
-defineExpose({ zoomIn, animateTeeth });
+defineExpose({ zoomIn, animateTeeth, animateTeethBack });
 </script>
 
 <style scoped>

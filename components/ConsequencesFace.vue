@@ -43,6 +43,11 @@ function animateTeeth() {
   webcamScene.value?.animateTeeth();
 }
 
+function animateTeethBack() {
+  console.log("animateTeethBack aufgerufen ConsequencesFace");
+  webcamScene.value?.animateTeethBack();
+}
+
 async function startZoom(i: number, t: number) {
   const mouthCenter = await faceDisplayComponent.value?.freezeFrame();
   if (!mouthCenter || !faceDisplay.value) return;
@@ -73,16 +78,6 @@ async function startZoom(i: number, t: number) {
     transformOrigin: "50% 50%",
   });
 
-  const dot = document.createElement("div");
-  dot.style.position = "absolute";
-  dot.style.left = `${1 - mouthCenter.x * 100}%`;
-  dot.style.top = `${mouthCenter.y * 100}%`;
-  dot.style.width = "10px";
-  dot.style.height = "10px";
-  dot.style.background = "red";
-  dot.style.borderRadius = "50%";
-  dot.style.pointerEvents = "none";
-  faceDisplay.value.appendChild(dot);
   gsap.to(faceDisplay.value, {
     scale: i,
     x: dx * i,
@@ -91,19 +86,56 @@ async function startZoom(i: number, t: number) {
     ease: "power2.inOut",
     onComplete: () => {
       variablesStore.updateShowInnerBody(true);
+      setTimeout(() => {
+        reset();
+      }, 500);
     },
   });
 
   webcamScene.value?.zoomIn(i, t, mouthCenter);
 }
 
+async function reset() {
+  // 2. GSAP Animationen am Container zurücksetzen
+  if (faceDisplay.value) {
+    gsap.to(faceDisplay.value, {
+      scale: 1,
+      x: 0,
+      y: 0,
+      duration: 0,
+      onComplete: () => {
+        // Sicherstellen, dass nach der Animation alles sauber ist
+        gsap.set(faceDisplay.value, { clearProps: "all" });
+      },
+    });
+  }
+
+  // 3. Three.js in WebcamScene zurücksetzen
+  // Hier musst du sicherstellen, dass WebcamScene.vue eine resetScene() Methode hat
+  if (webcamScene.value) {
+    //webcamScene.value.resetScene?.();
+  }
+
+  // 4. FaceDisplay/MediaPipe-Status zurücksetzen
+  if (faceDisplayComponent.value) {
+    // Falls du dort einen Freeze-Frame oder Texturen hast:
+    faceDisplayComponent.value.unfreezeFrame();
+  }
+}
+
 onMounted(() => {
   //loadMediaPipeScripts();
+});
+
+onBeforeUnmount(() => {
+  reset();
+  console.log("ConsequencesFace unmounted, reset called.");
 });
 
 defineExpose({
   startZoom,
   animateTeeth,
+  animateTeethBack,
   // Optional: Sie könnten auch 'message' exposen, wenn Sie es lesen wollen
   // message
 });
