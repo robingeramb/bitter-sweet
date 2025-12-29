@@ -259,7 +259,7 @@ const startGame = async () => {
 };
 
 // NEU: Logik, um den Ladebildschirm zu beenden
-const showVideoLoader = computed(() => started.value && !clockStart.value);
+const showVideoLoader = computed(() => started.value && !clockStart.value && !variablesStore.isSecondPlaythrough);
 
 const handleVideoFinish = () => {
   videoFinishedOnce.value = true;
@@ -331,7 +331,13 @@ const formattedTime = computed(() => {
 
 onMounted(() => {
   // Reset the shopping done status when the component is mounted
-  started.value = false;
+  if (variablesStore.isSecondPlaythrough) {
+    started.value = true;
+    videoFinishedOnce.value = true;
+    emit("startSetup");
+  } else {
+    started.value = false;
+  }
 
   gameOver.value = false;
   console.log("countdownMounted");

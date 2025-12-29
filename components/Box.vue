@@ -84,10 +84,7 @@ const dist = 0.12;
 let stopLoop = false;
 
 const { initThree, cleanUpThree } = useThree();
-const canvas = computed(
-  (): HTMLCanvasElement | null =>
-    document.getElementById("mountId") as HTMLCanvasElement
-);
+const canvasRef = ref<HTMLCanvasElement | null>(null);
 let fpControls: ReturnType<typeof useFirstPersonControls> | null = null;
 
 let mouseWatcherStop: () => void;
@@ -407,7 +404,7 @@ async function setupShoppingCart(shoplight: any): Promise<void> {
     useShoppingCartBody(shoppingCartBody);
     (shoppingCartBody as any).threemesh = shoppingCart;
 
-    shoppingCartDebugMesh = createCannonDebugger(scene, shoppingCartBody);
+    //shoppingCartDebugMesh = createCannonDebugger(scene, shoppingCartBody);
     world.addBody(shoppingCartBody);
 
     console.log(
@@ -760,17 +757,17 @@ onMounted(() => {
   isCartFollowingPlayer.value = true;
   clickable.value = false;
 
-  if (canvas.value) {
+  if (canvasRef.value) {
     const { renderer } = initThree("mountId");
     _renderer = renderer;
 
     useCartControls(pauseCartFollowing, resumeCartFollowing);
 
-    setupFloorPhysics(); // FIX: canvas.value wird jetzt geprüft
+    setupFloorPhysics(); // FIX: canvasRef.value wird jetzt geprüft
     setupWallPhysics(); // NEU: Physik für die Wände initialisieren
 
-    if (!canvas.value) return;
-    fpControls = useFirstPersonControls(camera, canvas.value);
+    if (!canvasRef.value) return;
+    fpControls = useFirstPersonControls(camera, canvasRef.value);
     fpControls.connect(); // Wichtig: fpControls.update() muss jetzt manuell im renderLoop aufgerufen werden
 
     (window as any).fpControls = fpControls;
@@ -778,8 +775,8 @@ onMounted(() => {
     _renderLoopId = requestAnimationFrame(renderLoop);
 
     // 5. Klick-Events für Interaktionen beibehalten
-    canvas.value.width = window.innerWidth;
-    canvas.value.height = window.innerHeight;
+    canvasRef.value.width = window.innerWidth;
+    canvasRef.value.height = window.innerHeight;
 
     // KORREKTUR: Kamera und Renderer an die neue Fenstergröße anpassen
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -979,7 +976,7 @@ defineExpose({
 <template>
   <div class="cursor-none fixed top-0 left-0">
     <div ref="statsContainer" class="stats"></div>
-    <canvas class="cursor-none" id="mountId" width="700" height="500" />
+    <canvas ref="canvasRef" class="cursor-none" id="mountId" width="700" height="500" />
     <ProductSelectMenu class="cursor-none" v-if="selectMode || productView" />
     <Cursor
       :mousePos="mousePos"

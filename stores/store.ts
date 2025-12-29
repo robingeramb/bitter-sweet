@@ -43,7 +43,6 @@ export const useVariablesStore = defineStore("variables", () => {
   const showReceiptDone = ref(false);
   const cursorFree = ref(false);
   const mouthOpen = ref(false);
-  ad;
   const cashoutStart = ref(false);
   const cashoutFinished = ref(false);
   const showInnerBody = ref(false);
